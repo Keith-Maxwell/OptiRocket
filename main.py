@@ -3,13 +3,20 @@ import importlib
 import mission4 as data
 
 
+# ------------- Constants ---------------
+
 mu = 3.986005e5  #(km3/s2) Earth GM
 Re = 6378.137  #(km) Earth Radius
 wE = 6.300387486749 / 86164  #(rad/s) Earth rotation speed (calculated from période sidérale)
 g0 = 9.80665  #Earth gravitation at sea level (m^2/s)
 
 
-def Requirements(mission="mission4"):
+# ------------ Definitions ---------------
+
+def Injection_Requirements(mission="mission2"):
+    """
+    Returns the Azimuth, Required velocity, initial velocity, losses, and Propulsive Delta V
+    """
     data = importlib.import_module(mission)
     # Calculate the azimuth (in radians)
     azi = np.arcsin(
@@ -28,57 +35,64 @@ def Requirements(mission="mission4"):
 
 
 def Propellant_spec(prop_type, stage_number):
-    if prop_type == "RP1":
-        if stage_number == 1:
-            Isp = 287
-        else:
-            Isp = 330
+    """
+    Returns the ISP and Structural index of a stage, given its propellant type and stage number
+    """
+    if prop_type.upper() == "RP1":
+        Isp = 287 if stage_number == 1 else 330
         struc_index = 0.15
-
-    elif prop_type == "LH2":
+    elif prop_type.upper() == "LH2" and stage_number != 1:
         Isp = 440
         struc_index = 0.22
-
-    else: # solid
-        if stage_number == 1:
-            Isp = 260
-        else:
-            Isp = 300
+    elif prop_type.upper() == "SOLID" and stage_number == 1:
+        Isp = 260
         struc_index = 0.10
-
+    else:
+        raise ValueError
     return Isp, struc_index
 
 
+def Propellant(list_of_propellants):
+    """ 
+    Returns 2 lists : ISP and structural index, ordered by stage
+    """
+    ISP = []
+    structural_index = []
+    for stage, prop_type in enumerate(list_of_propellants, start=1):
+        i, k = Propellant_spec(prop_type, stage)
+        ISP.append(i)
+        structural_index.append(k)
+    return ISP, structural_index
 
 
-azimut, Vf, Vi, Vl, dVp = Requirements()
-# Print :
-print("azimuth ", round(np.degrees(azimut), 2))
-print("V required", round(Vf, 2), " m/s.")
-print("V init ", round(Vi, 2), " m/s.")
-print("Losses ", round(Vl, 2), " m/s.")
-print("Delta V required ", round(dVp, 2), " m/s.")
+# --------------------------------------------------------
+
+
+azimut, Vf, Vi, Vl, dVp = Injection_Requirements()
 
 
 ISP1, k1 = Propellant_spec("RP1", 1)
 ISP2, k2 = Propellant_spec("RP1", 2)
-Omega2 = k2 / (1+k2)
-Omega1 = k1 / (1+k1)
+Omega2 = k2 / (1 + k2)
+Omega1 = k1 / (1 + k1)
 
-b2 = 3 # arbitrary
+
+# ------------- Lagrange Multiplier Method ---------------
+
+b2 = 3  # arbitrary
 while True:
-    b1 = 1/Omega1 * (1 - ISP2/ISP1 * (1 - Omega2 * b2))
+    b1 = 1 / Omega1 * (1 - ISP2 / ISP1 * (1 - Omega2 * b2))
     dV1 = g0 * ISP1 * np.log(b1)
     dV2 = g0 * ISP2 * np.log(b2)
     dV = dV1 + dV2
     if dV > dVp:
         M_u = data.m_payload
-        a1 = (1+k1) / b1 - k1
-        a2 = (1+k2) / b2 - k2
+        a1 = (1 + k1) / b1 - k1
+        a2 = (1 + k2) / b2 - k2
         M2 = M_u / a2
-        M1 = M2/ a1
-        m_e1 = M1 * (1-a1) / (1+k1)
-        m_e2 = M2 * (1-a2) / (1+k2)
+        M1 = M2 / a1
+        m_e1 = M1 * (1 - a1) / (1 + k1)
+        m_e2 = M2 * (1 - a2) / (1 + k2)
         m_s1 = k1 * m_e1
         m_s2 = k2 * m_e2
         if m_s1 < 500 or m_s2 < 200:
@@ -87,16 +101,23 @@ while True:
         break
     b2 += 0.00001
 
+
+
+# ----------------- Prints -------------------
+
+print("azimuth ", round(np.degrees(azimut), 2))
+print("V required", round(Vf, 2), " m/s.")
+print("V init ", round(Vi, 2), " m/s.")
+print("Losses ", round(Vl, 2), " m/s.")
+print("Delta V required ", round(dVp, 2), " m/s.")
 print("Delta V : ", dV)
-print ("\nIPS1", ISP1, "k1", k1)
-print ("IPS2", ISP2, "k2", k2)
+print("\nIPS1", ISP1, "k1", k1)
+print("IPS2", ISP2, "k2", k2)
 print("\nStage 1 ", m_s1 + m_e1, "\nStage 2 ", m_s2 + m_e2)
 print("Total mass ", M1)
 print("propellant mass stage 1 ", m_e1)
 print("propellant mass stage 2 ", m_e2)
 print("Structural mass stage 1 ", m_s1)
 print("Structural mass stage 2 ", m_s2)
-print("DeltaV1= ",dV1)
-print("DeltaV2= ",dV2)
-
-
+print("DeltaV1= ", dV1)
+print("DeltaV2= ", dV2)

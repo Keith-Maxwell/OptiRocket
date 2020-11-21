@@ -1,6 +1,6 @@
 import numpy as np
 import importlib
-import mission2 as data
+import mission4 as data
 
 
 mu = 3.986005e5  #(km3/s2) Earth GM
@@ -9,7 +9,7 @@ wE = 6.300387486749 / 86164  #(rad/s) Earth rotation speed (calculated from pér
 g0 = 9.80665  #Earth gravitation at sea level (m^2/s)
 
 
-def Requirements(mission="mission2"):
+def Requirements(mission="mission4"):
     data = importlib.import_module(mission)
     # Calculate the azimuth (in radians)
     azi = np.arcsin(
@@ -60,8 +60,8 @@ print("Losses ", round(Vl, 2), " m/s.")
 print("Delta V required ", round(dVp, 2), " m/s.")
 
 
-ISP1, k1 = Propellant_spec("Solid", 1)
-ISP2, k2 = Propellant_spec("LH2", 2)
+ISP1, k1 = Propellant_spec("RP1", 1)
+ISP2, k2 = Propellant_spec("RP1", 2)
 Omega2 = k2 / (1+k2)
 Omega1 = k1 / (1+k1)
 
@@ -85,7 +85,7 @@ while True:
             b2 += 0.001
             continue
         break
-    b2 += 0.0001
+    b2 += 0.00001
 
 print("Delta V : ", dV)
 print ("\nIPS1", ISP1, "k1", k1)
@@ -98,6 +98,5 @@ print("Structural mass stage 1 ", m_s1)
 print("Structural mass stage 2 ", m_s2)
 print("DeltaV1= ",dV1)
 print("DeltaV2= ",dV2)
-
 
 

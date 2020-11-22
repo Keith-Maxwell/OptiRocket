@@ -64,51 +64,58 @@ def Propellant(list_of_propellants):
     return ISP, structural_index
 
 
-# --------------------------------------------------------
+def Stage_Optimisation(stages, required_dVp):
+    n = len(stages)
+
+    ISP, k = Propellant(stages)
+
+    a = [0] * n
+    b = [0] * n
+    dV = [0] * n
+    M = [0] * n
+    M.append(data.m_payload)
+    m_e = [0] * n
+    m_s = [0] * n
+
+    Omega = [0] * n
+    for i in range(n - 1, -1, -1):
+        Omega[i] = k[i] / (1 + k[i])
+
+    # ------------- Lagrange Multiplier Method ---------------
+
+    b[n - 1] = 3  # arbitrary
+    while True:
+        dV[n - 1] = g0 * ISP[n - 1] * np.log(b[n - 1])
+        for j in range(n - 2, -1, -1):
+            b[j] = 1 / Omega[j] * (1 - ISP[j + 1] / ISP[j] *
+                                   (1 - Omega[j + 1] * b[j + 1]))
+            dV[j] = g0 * ISP[j] * np.log(b[j])
+
+        if sum(dV) > required_dVp:
+            for i in range(n - 1, -1, -1):
+                a[i] = (1 + k[i]) / b[i] - k[i]
+                M[i] = M[i + 1] / a[i]
+                m_e[i] = M[i] * (1 - a[i]) / (1 + k[i])
+                m_s[i] = k[i] * m_e[i]
+
+            if m_s[0] < 500 or any(elem < 200 for elem in m_s[1:]) or any(
+                (m_s[i] + m_e[i]) <
+                (sum(m_e[i + 1:]) + sum(m_s[i + 1:]) + M[-1])
+                    for i in range(n - 2, -1, -1)):
+                b[n - 1] += 0.001
+                continue
+            break
+        b[n - 1] += 0.00001
+    return ISP, dV, M, m_e, m_s
+
+
+# -------------------- Main ----------------------
 
 azimut, Vf, Vi, Vl, dVp = Injection_Requirements()
 
-stages = ["RP1", "RP1","RP1"]
-n = len(stages)
+stages = ["RP1", "RP1", "RP1"]
 
-ISP, k = Propellant(stages)
-
-a = [0] * n
-b = [0] * n
-dV = [0] * n
-M = [0] * n
-M.append(data.m_payload)
-m_e = [0] * n
-m_s = [0] * n
-
-Omega = [0] * n
-for i in range(n - 1, -1, -1):
-    Omega[i] = k[i] / (1 + k[i])
-
-# ------------- Lagrange Multiplier Method ---------------
-
-b[n - 1] = 3  # arbitrary
-while True:
-    dV[n - 1] = g0 * ISP[n - 1] * np.log(b[n - 1])
-    for j in range(n - 2, -1, -1):
-        b[j] = 1 / Omega[j] * (1 - ISP[j + 1] / ISP[j] *
-                               (1 - Omega[j + 1] * b[j + 1]))
-        dV[j] = g0 * ISP[j] * np.log(b[j])
-
-    if sum(dV) > dVp:
-        for i in range(n - 1, -1, -1):
-            a[i] = (1 + k[i]) / b[i] - k[i]
-            M[i] = M[i + 1] / a[i]
-            m_e[i] = M[i] * (1 - a[i]) / (1 + k[i])
-            m_s[i] = k[i] * m_e[i]
-
-        if m_s[0] < 500 or any(elem < 200 for elem in m_s[1:]) or any(
-            (m_s[i] + m_e[i]) < (sum(m_e[i + 1:]) + sum(m_s[i + 1:]) + M[-1])
-                for i in range(n - 2, -1, -1)):
-            b[n - 1] += 0.001
-            continue
-        break
-    b[n - 1] += 0.00001
+ISP, dV, M, m_e, m_s = Stage_Optimisation(stages, dVp)
 
 # ----------------- Prints -------------------
 print("azimuth ", round(np.degrees(azimut), 2))
@@ -119,7 +126,7 @@ print("Delta V required ", round(dVp, 2), " m/s.")
 print(f"\nTotal propulsive Delta V = {sum(dV)}")
 print("\nTotal mass ", M[0])
 
-for i in range(n):
+for i in range(len(stages)):
     print(f"\nDelta V stage {i+1} = {dV[i]}")
     print(f"ISP stage {i+1} = {ISP[i]}")
     print(f"Mass of Stage {i+1} = {m_s[i] + m_e[i]}")

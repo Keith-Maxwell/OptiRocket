@@ -2,7 +2,6 @@ import numpy as np
 import importlib
 import mission4 as data
 
-
 # ------------- Constants ---------------
 
 mu = 3.986005e5  #(km3/s2) Earth GM
@@ -10,10 +9,10 @@ Re = 6378.137  #(km) Earth Radius
 wE = 6.300387486749 / 86164  #(rad/s) Earth rotation speed (calculated from période sidérale)
 g0 = 9.80665  #Earth gravitation at sea level (m^2/s)
 
-
 # ------------ Definitions ---------------
 
-def Injection_Requirements(mission="mission2"):
+
+def Injection_Requirements(mission="mission4"):
     """
     Returns the Azimuth, Required velocity, initial velocity, losses, and Propulsive Delta V
     """
@@ -67,57 +66,62 @@ def Propellant(list_of_propellants):
 
 # --------------------------------------------------------
 
-
 azimut, Vf, Vi, Vl, dVp = Injection_Requirements()
 
+stages = ["RP1", "RP1","RP1"]
+n = len(stages)
 
-ISP1, k1 = Propellant_spec("RP1", 1)
-ISP2, k2 = Propellant_spec("RP1", 2)
-Omega2 = k2 / (1 + k2)
-Omega1 = k1 / (1 + k1)
+ISP, k = Propellant(stages)
 
+a = [0] * n
+b = [0] * n
+dV = [0] * n
+M = [0] * n
+M.append(data.m_payload)
+m_e = [0] * n
+m_s = [0] * n
+
+Omega = [0] * n
+for i in range(n - 1, -1, -1):
+    Omega[i] = k[i] / (1 + k[i])
 
 # ------------- Lagrange Multiplier Method ---------------
 
-b2 = 3  # arbitrary
+b[n - 1] = 3  # arbitrary
 while True:
-    b1 = 1 / Omega1 * (1 - ISP2 / ISP1 * (1 - Omega2 * b2))
-    dV1 = g0 * ISP1 * np.log(b1)
-    dV2 = g0 * ISP2 * np.log(b2)
-    dV = dV1 + dV2
-    if dV > dVp:
-        M_u = data.m_payload
-        a1 = (1 + k1) / b1 - k1
-        a2 = (1 + k2) / b2 - k2
-        M2 = M_u / a2
-        M1 = M2 / a1
-        m_e1 = M1 * (1 - a1) / (1 + k1)
-        m_e2 = M2 * (1 - a2) / (1 + k2)
-        m_s1 = k1 * m_e1
-        m_s2 = k2 * m_e2
-        if m_s1 < 500 or m_s2 < 200:
-            b2 += 0.001
+    dV[n - 1] = g0 * ISP[n - 1] * np.log(b[n - 1])
+    for j in range(n - 2, -1, -1):
+        b[j] = 1 / Omega[j] * (1 - ISP[j + 1] / ISP[j] *
+                               (1 - Omega[j + 1] * b[j + 1]))
+        dV[j] = g0 * ISP[j] * np.log(b[j])
+
+    if sum(dV) > dVp:
+        for i in range(n - 1, -1, -1):
+            a[i] = (1 + k[i]) / b[i] - k[i]
+            M[i] = M[i + 1] / a[i]
+            m_e[i] = M[i] * (1 - a[i]) / (1 + k[i])
+            m_s[i] = k[i] * m_e[i]
+
+        if m_s[0] < 500 or any(elem < 200 for elem in m_s[1:]) or any(
+            (m_s[i] + m_e[i]) < (sum(m_e[i + 1:]) + sum(m_s[i + 1:]) + M[-1])
+                for i in range(n - 2, -1, -1)):
+            b[n - 1] += 0.001
             continue
         break
-    b2 += 0.00001
-
-
+    b[n - 1] += 0.00001
 
 # ----------------- Prints -------------------
-
 print("azimuth ", round(np.degrees(azimut), 2))
 print("V required", round(Vf, 2), " m/s.")
 print("V init ", round(Vi, 2), " m/s.")
 print("Losses ", round(Vl, 2), " m/s.")
 print("Delta V required ", round(dVp, 2), " m/s.")
-print("Delta V : ", dV)
-print("\nIPS1", ISP1, "k1", k1)
-print("IPS2", ISP2, "k2", k2)
-print("\nStage 1 ", m_s1 + m_e1, "\nStage 2 ", m_s2 + m_e2)
-print("Total mass ", M1)
-print("propellant mass stage 1 ", m_e1)
-print("propellant mass stage 2 ", m_e2)
-print("Structural mass stage 1 ", m_s1)
-print("Structural mass stage 2 ", m_s2)
-print("DeltaV1= ", dV1)
-print("DeltaV2= ", dV2)
+print(f"\nTotal propulsive Delta V = {sum(dV)}")
+print("\nTotal mass ", M[0])
+
+for i in range(n):
+    print(f"\nDelta V stage {i+1} = {dV[i]}")
+    print(f"ISP stage {i+1} = {ISP[i]}")
+    print(f"Mass of Stage {i+1} = {m_s[i] + m_e[i]}")
+    print(f"Propellant mass stage {i+1} = {m_e[i]}")
+    print(f"Structural mass stage {i+1} = {m_s[i]}")

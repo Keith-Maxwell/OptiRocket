@@ -1,13 +1,7 @@
 import numpy as np
 import importlib
+import library.orbit_lib as lib
 
-
-# ------------- Constants ---------------
-
-mu = 3.986005e5  # (km^3/s^2) Earth GM
-Re = 6378.137  # (km) Earth Radius
-wE = 6.300387486749 / 86164  # (rad/s) Earth rotation speed (calculated from période sidérale)
-g0 = 9.80665  # Earth gravitation at sea level (m^2/s)
 
 # ------------ Definitions ---------------
 
@@ -18,18 +12,16 @@ def Injection_Requirements(mission: str = "mission5"):
 
     Takes the name of the mission file as input (without the extension)
     """
-    data = importlib.import_module(mission)
+    data = importlib.import_module("missions." + mission)
+
     # Calculate the azimuth (in radians)
-    azi = np.arcsin(
-        np.cos(np.radians(data.inc)) / np.cos(
-            np.radians(data.launchpad_latitude)))
-    # Circular orbit velocity (m/s)
-    V_final = np.sqrt(mu / ((2 * Re + data.Z_p + data.Z_a) / 2)) * 10**3
+    azi = lib.get_azimuth(data.inc, data.launchpad_latitude)
+    # orbit velocity (m/s)
+    V_final = lib.get_orbit_velocity(data.Z_p, data.Z_a)
     # Initial velocity due to Earth Rotation (m/s)
-    V_init = wE * (Re) * 10**3 * np.cos(np.radians(
-        data.launchpad_latitude)) * np.sin(azi)
+    V_init = lib.get_initial_velocity(data.launchpad_latitude, azi)
     # Delta V losses due to atmospheric drag and more (m/s)
-    V_losses = (2.452e-3) * data.Z_p**2 + 1.051 * data.Z_p + 1387.50
+    V_losses = lib.get_deltaV_losses(data.Z_p)
     # Propulsive dV required to get to the desired orbit (m/s)
     dVp = V_final - V_init + V_losses
     return azi, V_final, V_init, V_losses, dVp, data.m_payload
@@ -96,11 +88,11 @@ def Stage_Optimisation(stages, required_dVp: float, M_u: float, starting_b_value
 
     b[n - 1] = starting_b_value  # arbitrary
     while True:
-        dV[n - 1] = g0 * ISP[n - 1] * np.log(b[n - 1])
+        dV[n - 1] = lib.const.EARTH_GRAV_SEA_LVL * ISP[n - 1] * np.log(b[n - 1])
         for j in range(n - 2, -1, -1):
             b[j] = 1 / Omega[j] * (1 - ISP[j + 1] / ISP[j] *
                                    (1 - Omega[j + 1] * b[j + 1]))
-            dV[j] = g0 * ISP[j] * np.log(b[j])
+            dV[j] = lib.const.EARTH_GRAV_SEA_LVL * ISP[j] * np.log(b[j])
 
         if sum(dV) >= required_dVp:
             for i in range(n - 1, -1, -1):
@@ -127,7 +119,7 @@ def Stage_Optimisation(stages, required_dVp: float, M_u: float, starting_b_value
 
 if __name__ == "__main__":
 
-    azimut, Vf, Vi, Vl, dVp, m_cu = Injection_Requirements("mission2")  # <-- input the mission scenario
+    azimut, Vf, Vi, Vl, dVp, m_cu = Injection_Requirements("mission3")  # <-- input the mission scenario
 
     stages = ["solid", "LH2"]  # <-- input the stages propellants, from bottom to top.
 

@@ -88,7 +88,8 @@ def Stage_Optimisation(stages, required_dVp: float, M_u: float, starting_b_value
 
     b[n - 1] = starting_b_value  # arbitrary
     while True:
-        dV[n - 1] = lib.const.EARTH_GRAV_SEA_LVL * ISP[n - 1] * np.log(b[n - 1])
+        dV[n - 1] = lib.const.EARTH_GRAV_SEA_LVL * \
+            ISP[n - 1] * np.log(b[n - 1])
         for j in range(n - 2, -1, -1):
             b[j] = 1 / Omega[j] * (1 - ISP[j + 1] / ISP[j] *
                                    (1 - Omega[j + 1] * b[j + 1]))
@@ -118,16 +119,17 @@ def Stage_Optimisation(stages, required_dVp: float, M_u: float, starting_b_value
 
 
 if __name__ == "__main__":
+    # <-- input the mission scenario
+    azimut, Vf, Vi, Vl, dVp, m_cu = Injection_Requirements("mission3")
 
-    azimut, Vf, Vi, Vl, dVp, m_cu = Injection_Requirements("mission3")  # <-- input the mission scenario
-
-    stages = ["solid", "LH2"]  # <-- input the stages propellants, from bottom to top.
+    # <-- input the stages propellants, from bottom to top.
+    stages = ["solid", "LH2"]
 
     ISP, dV, M, m_e, m_s = Stage_Optimisation(stages, dVp, m_cu)
 
     # ----------------- Prints -------------------
     print("\n-------------- Mission parameters --------------")
-    print("azimuth ", round(np.degrees(azimut), 2))
+    print("azimuth ", round(azimut, 2))
     print("V required", round(Vf, 2), " m/s.")
     print("V init ", round(Vi, 2), " m/s.")
     print("Losses ", round(Vl, 2), " m/s.")

@@ -1,45 +1,70 @@
 import numpy as np
 import importlib
+import library.orbit_lib as lib
 
-
-# ------------- Constants ---------------
-
-mu = 3.986005e5  # (km^3/s^2) Earth GM
-Re = 6378.137  # (km) Earth Radius
-wE = 6.300387486749 / 86164  # (rad/s) Earth rotation speed (calculated from période sidérale)
-g0 = 9.80665  # Earth gravitation at sea level (m^2/s)
 
 # ------------ Definitions ---------------
 
 
 def Injection_Requirements(mission: str = "mission5"):
-    """
-    Returns the Azimuth, Required velocity, initial velocity, losses, Propulsive Delta V and payload mass
+    """Calculates the main requirements from the mission profile specified.
+    When given a Mission profile in the form of a python file, this function
+    calculates the azimuth required for the launch, the final required velocity
+    for the given orbit, the initial velocity provided by the Earth, the velocity
+    losses due to various sources and finaly the propulsive delta V required
+    by the rocket to reach orbit.
 
-    Takes the name of the mission file as input (without the extension)
+    Args:
+        mission (str, optional): name of the python file (without extension) 
+        that contains the mission data. Defaults to "mission5".
+
+    Returns:
+        float: Azimuth of the launch
+        float: Orbital velocity required at injection
+        float: Initial velocity provided by the Earth rotation
+        float: Velocity Losses from reaching the orbit
+        float: Total Propulsive Delta V of the Rocket
+        float: Mass of the payload
     """
-    data = importlib.import_module(mission)
+
+    data = importlib.import_module("missions." + mission)
+
     # Calculate the azimuth (in radians)
-    azi = np.arcsin(
-        np.cos(np.radians(data.inc)) / np.cos(
-            np.radians(data.launchpad_latitude)))
-    # Circular orbit velocity (m/s)
-    V_final = np.sqrt(mu / ((2 * Re + data.Z_p + data.Z_a) / 2)) * 10**3
+    azi = lib.get_azimuth(data.inc, data.launchpad_latitude)
+    # orbit velocity (m/s)
+    V_final = lib.get_orbit_velocity(data.Z_p, data.Z_a)
     # Initial velocity due to Earth Rotation (m/s)
-    V_init = wE * (Re) * 10**3 * np.cos(np.radians(
-        data.launchpad_latitude)) * np.sin(azi)
+    V_init = lib.get_initial_velocity(data.launchpad_latitude, azi)
     # Delta V losses due to atmospheric drag and more (m/s)
-    V_losses = (2.452e-3) * data.Z_p**2 + 1.051 * data.Z_p + 1387.50
+    V_losses = lib.get_deltaV_losses(data.Z_p)
     # Propulsive dV required to get to the desired orbit (m/s)
     dVp = V_final - V_init + V_losses
     return azi, V_final, V_init, V_losses, dVp, data.m_payload
 
 
 def Propellant_spec(prop_type: str, stage_number: int):
-    """
-    Returns the ISP and Structural index of a stage, given its propellant type and stage number
+    """This function returns the predetermined characteristics
+    of rocket fuel. The main characteristics are the ISP, 
+    the higher the better, and the structural index, the lower the better.
+    The structural index represents the portion of the mass used by 
+    the structure of the tank.
+    Solid propellant can only be used for the first stage.
+    Liquid Hydrogen cannot be used for the first stage.
 
-    Input is the prop type and the stage number
+    Args:
+        prop_type (str): Name of the propellant used. 
+        - LH2 is liquid hydrogen. 
+        - RP1 is rocket grade kerosene. 
+        - SOLID is self explainatory.
+        stage_number (int): Number of the stage for the propellant used.
+        (1 is the first stage, at the bottom of the rocket).
+
+    Raises:
+        ValueError: If the provided propellant is not in ["RP1", "LH2", "SOLID"] or if the given propellant cannot be used for the stage.
+
+    Returns:
+        int: ISP of the propellant
+        float: structural index of the tank containing the propellant.
     """
     if prop_type.upper() == "RP1":
         Isp = 287 if stage_number == 1 else 330
@@ -55,11 +80,17 @@ def Propellant_spec(prop_type: str, stage_number: int):
     return Isp, struc_index
 
 
-def Propellant(list_of_propellants):
-    """
-    Returns 2 lists : ISP and structural index, ordered by stage
+def get_propellant_specs(list_of_propellants):
+    """Utility function that returns all the ISPs and Structural indices of each stage
+    in a list ordered by stage.
 
-    Input is a list of propellant types ordered by stage starting from bottom to top
+    Args:
+        list_of_propellants (List[str]): List of propellants used, 
+        stage by stage, in order from stage 1 to n (bottom to top)
+
+    Returns:
+        List[int]: ISPs of each stage, ordered bottom stage (1) to top stage (n).
+        List[float]: Stuctural indices of each stage, ordered bottom stage (1) to top stage (n).
     """
     ISP = []
     structural_index = []
@@ -70,21 +101,37 @@ def Propellant(list_of_propellants):
     return ISP, structural_index
 
 
-def Stage_Optimisation(stages, required_dVp: float, M_u: float, starting_b_value: float = 3):
-    """
-    Returns the ISP, delta V, Stage mass, Mass of fuel and structural mass of every stage. The returned elements are lists.
+def Stage_Optimisation(stages, required_dVp: float, payload_mass: float, starting_b_value: float = 1):
+    """Automaticaly finds the most optimized rocket configuration using the given stage propellant list. A list of n elements will result in a rocket with n stages. Each stage uses the propellant specified. Choices are RP1, LH2 or Solid.
+    The function will try to build a rocket with a propulsive Delta V >= required_dVp. 
+    Payload mass must be specified because it is important in the sizing of the rocket.
 
-    Takes as an input a list of propellant types ordered by stage starting from bottom to top, the required Delta V and the payload mass.
+    Args:
+        stages (List[str]): List of propellants used, stage by stage, in order from stage 1 to n (bottom to top).
+        required_dVp (float): Velocity required by the mission for injection.
+        payload_mass (float): Mass of the payload/satellite from the mission data.
+        starting_b_value (float, optional): value of the factor b at the start of the algorithm. Defaults to 1.
+
+    Returns:
+        List[int]: ISPs of each stage, in a list ordered by stage 
+        List[float]: Delta V of each stage, in a list ordered by stage 
+        List[float]: incremental mass of each stage, in a list ordered by stage 
+        List[float]: fuel mass of each stage, in a list ordered by stage 
+        List[float]: structural mass of each stage, in a list ordered by stage 
     """
+    # Returns the ISP, delta V, Stage mass, Mass of fuel and structural mass of every stage. The returned elements are lists.
+
+    # Takes as an input a list of propellant types ordered by stage starting from bottom to top, the required Delta V and the payload mass.
+
     n = len(stages)
 
-    ISP, k = Propellant(stages)
+    ISP, k = get_propellant_specs(stages)
 
     a = [0] * n
     b = [0] * n
     dV = [0] * n
     M = [0] * n
-    M.append(M_u)
+    M.append(payload_mass)
     m_e = [0] * n
     m_s = [0] * n
 
@@ -96,11 +143,12 @@ def Stage_Optimisation(stages, required_dVp: float, M_u: float, starting_b_value
 
     b[n - 1] = starting_b_value  # arbitrary
     while True:
-        dV[n - 1] = g0 * ISP[n - 1] * np.log(b[n - 1])
+        dV[n - 1] = lib.const.EARTH_GRAV_SEA_LVL * \
+            ISP[n - 1] * np.log(b[n - 1])
         for j in range(n - 2, -1, -1):
             b[j] = 1 / Omega[j] * (1 - ISP[j + 1] / ISP[j] *
                                    (1 - Omega[j + 1] * b[j + 1]))
-            dV[j] = g0 * ISP[j] * np.log(b[j])
+            dV[j] = lib.const.EARTH_GRAV_SEA_LVL * ISP[j] * np.log(b[j])
 
         if sum(dV) >= required_dVp:
             for i in range(n - 1, -1, -1):
@@ -126,16 +174,17 @@ def Stage_Optimisation(stages, required_dVp: float, M_u: float, starting_b_value
 
 
 if __name__ == "__main__":
+    # <-- input the mission scenario
+    azimut, Vf, Vi, Vl, dVp, m_cu = Injection_Requirements("mission3")
 
-    azimut, Vf, Vi, Vl, dVp, m_cu = Injection_Requirements("mission2")  # <-- input the mission scenario
-
-    stages = ["solid", "LH2"]  # <-- input the stages propellants, from bottom to top.
+    # <-- input the stages propellants, from bottom to top.
+    stages = ["solid", "LH2"]
 
     ISP, dV, M, m_e, m_s = Stage_Optimisation(stages, dVp, m_cu)
 
     # ----------------- Prints -------------------
     print("\n-------------- Mission parameters --------------")
-    print("azimuth ", round(np.degrees(azimut), 2))
+    print("azimuth ", round(azimut, 2))
     print("V required", round(Vf, 2), " m/s.")
     print("V init ", round(Vi, 2), " m/s.")
     print("Losses ", round(Vl, 2), " m/s.")

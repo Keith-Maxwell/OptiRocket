@@ -7,11 +7,26 @@ import library.orbit_lib as lib
 
 
 def Injection_Requirements(mission: str = "mission5"):
-    """
-    Returns the Azimuth, Required velocity, initial velocity, losses, Propulsive Delta V and payload mass
+    """Calculates the main requirements from the mission profile specified.
+    When given a Mission profile in the form of a python file, this function
+    calculates the azimuth required for the launch, the final required velocity
+    for the given orbit, the initial velocity provided by the Earth, the velocity
+    losses due to various sources and finaly the propulsive delta V required
+    by the rocket to reach orbit.
 
-    Takes the name of the mission file as input (without the extension)
+    Args:
+        mission (str, optional): name of the python file (without extension) 
+        that contains the mission data. Defaults to "mission5".
+
+    Returns:
+        float: Azimuth of the launch
+        float: Orbital velocity required at injection
+        float: Initial velocity provided by the Earth rotation
+        float: Velocity Losses from reaching the orbit
+        float: Total Propulsive Delta V of the Rocket
+        float: Mass of the payload
     """
+
     data = importlib.import_module("missions." + mission)
 
     # Calculate the azimuth (in radians)
@@ -28,10 +43,28 @@ def Injection_Requirements(mission: str = "mission5"):
 
 
 def Propellant_spec(prop_type: str, stage_number: int):
-    """
-    Returns the ISP and Structural index of a stage, given its propellant type and stage number
+    """This function returns the predetermined characteristics
+    of rocket fuel. The main characteristics are the ISP, 
+    the higher the better, and the structural index, the lower the better.
+    The structural index represents the portion of the mass used by 
+    the structure of the tank.
+    Solid propellant can only be used for the first stage.
+    Liquid Hydrogen cannot be used for the first stage.
 
-    Input is the prop type and the stage number
+    Args:
+        prop_type (str): Name of the propellant used. 
+        - LH2 is liquid hydrogen. 
+        - RP1 is rocket grade kerosene. 
+        - SOLID is self explainatory.
+        stage_number (int): Number of the stage for the propellant used.
+        (1 is the first stage, at the bottom of the rocket).
+
+    Raises:
+        ValueError: If the provided propellant is not in ["RP1", "LH2", "SOLID"] or if the given propellant cannot be used for the stage.
+
+    Returns:
+        int: ISP of the propellant
+        float: structural index of the tank containing the propellant.
     """
     if prop_type.upper() == "RP1":
         Isp = 287 if stage_number == 1 else 330
@@ -47,11 +80,17 @@ def Propellant_spec(prop_type: str, stage_number: int):
     return Isp, struc_index
 
 
-def Propellant(list_of_propellants):
-    """
-    Returns 2 lists : ISP and structural index, ordered by stage
+def get_propellant_specs(list_of_propellants):
+    """Utility function that returns all the ISPs and Structural indices of each stage
+    in a list ordered by stage.
 
-    Input is a list of propellant types ordered by stage starting from bottom to top
+    Args:
+        list_of_propellants (List[str]): List of propellants used, 
+        stage by stage, in order from stage 1 to n (bottom to top)
+
+    Returns:
+        List[int]: ISPs of each stage, ordered bottom stage (1) to top stage (n).
+        List[float]: Stuctural indices of each stage, ordered bottom stage (1) to top stage (n).
     """
     ISP = []
     structural_index = []
@@ -62,21 +101,37 @@ def Propellant(list_of_propellants):
     return ISP, structural_index
 
 
-def Stage_Optimisation(stages, required_dVp: float, M_u: float, starting_b_value: float = 3):
-    """
-    Returns the ISP, delta V, Stage mass, Mass of fuel and structural mass of every stage. The returned elements are lists.
+def Stage_Optimisation(stages, required_dVp: float, payload_mass: float, starting_b_value: float = 1):
+    """Automaticaly finds the most optimized rocket configuration using the given stage propellant list. A list of n elements will result in a rocket with n stages. Each stage uses the propellant specified. Choices are RP1, LH2 or Solid.
+    The function will try to build a rocket with a propulsive Delta V >= required_dVp. 
+    Payload mass must be specified because it is important in the sizing of the rocket.
 
-    Takes as an input a list of propellant types ordered by stage starting from bottom to top, the required Delta V and the payload mass.
+    Args:
+        stages (List[str]): List of propellants used, stage by stage, in order from stage 1 to n (bottom to top).
+        required_dVp (float): Velocity required by the mission for injection.
+        payload_mass (float): Mass of the payload/satellite from the mission data.
+        starting_b_value (float, optional): value of the factor b at the start of the algorithm. Defaults to 1.
+
+    Returns:
+        List[int]: ISPs of each stage, in a list ordered by stage 
+        List[float]: Delta V of each stage, in a list ordered by stage 
+        List[float]: incremental mass of each stage, in a list ordered by stage 
+        List[float]: fuel mass of each stage, in a list ordered by stage 
+        List[float]: structural mass of each stage, in a list ordered by stage 
     """
+    # Returns the ISP, delta V, Stage mass, Mass of fuel and structural mass of every stage. The returned elements are lists.
+
+    # Takes as an input a list of propellant types ordered by stage starting from bottom to top, the required Delta V and the payload mass.
+
     n = len(stages)
 
-    ISP, k = Propellant(stages)
+    ISP, k = get_propellant_specs(stages)
 
     a = [0] * n
     b = [0] * n
     dV = [0] * n
     M = [0] * n
-    M.append(M_u)
+    M.append(payload_mass)
     m_e = [0] * n
     m_s = [0] * n
 

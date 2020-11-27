@@ -21,5 +21,5 @@ def get_orbit_velocity(perigee: float, apogee: float) -> float:
 
 def get_initial_velocity(launchpad_latitude: float, azimuth: float) -> float:
     """ Returns the initial velocity given by the rotation of the Earth. Depends on the launchpad_latitude (in degrees) and the launch azimuth (in degrees)"""
-    return const.EARTH_SID_PERIOD * (const.EARTH_RADIUS) * 10**3 * np.cos(np.radians(
+    return const.EARTH_ROT_RATE * (const.EARTH_RADIUS) * 10**3 * np.cos(np.radians(
         launchpad_latitude)) * np.sin(np.radians(azimuth))

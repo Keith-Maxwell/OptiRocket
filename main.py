@@ -1,5 +1,7 @@
 import numpy as np
 import importlib
+
+from numpy.core.numeric import Infinity
 import library.orbit_lib as lib
 
 
@@ -101,7 +103,7 @@ def get_propellant_specs(list_of_propellants):
     return ISP, structural_index
 
 
-def Stage_Optimisation(stages, required_dVp: float, payload_mass: float, starting_b_value: float = 1):
+def Stage_Optimisation(stages, required_dVp: float, payload_mass: float, starting_b_value: float = 1.0001, min_stage1_mass: float = 500, min_stageN_mass: float = 200):
     """Automaticaly finds the most optimized rocket configuration using the given stage propellant list. A list of n elements will result in a rocket with n stages. Each stage uses the propellant specified. Choices are RP1, LH2 or Solid.
     The function will try to build a rocket with a propulsive Delta V >= required_dVp. 
     Payload mass must be specified because it is important in the sizing of the rocket.
@@ -119,9 +121,6 @@ def Stage_Optimisation(stages, required_dVp: float, payload_mass: float, startin
         List[float]: fuel mass of each stage, in a list ordered by stage 
         List[float]: structural mass of each stage, in a list ordered by stage 
     """
-    # Returns the ISP, delta V, Stage mass, Mass of fuel and structural mass of every stage. The returned elements are lists.
-
-    # Takes as an input a list of propellant types ordered by stage starting from bottom to top, the required Delta V and the payload mass.
 
     n = len(stages)
 
@@ -157,7 +156,10 @@ def Stage_Optimisation(stages, required_dVp: float, payload_mass: float, startin
                 m_e[i] = M[i] * (1 - a[i]) / (1 + k[i])
                 m_s[i] = k[i] * m_e[i]
 
-            if m_s[0] < 500 or any(elem < 200 for elem in m_s[1:]) or any(
+            # Stage 1 > 500 kg
+            # Stage N > 200 kg
+            # Mass Stage i > total mass stages above
+            if m_s[0] < min_stage1_mass or any(elem < min_stageN_mass for elem in m_s[1:]) or any(
                 (m_s[i] + m_e[i]) <
                 (sum(m_e[i + 1:]) + sum(m_s[i + 1:]) + M[-1])
                     for i in range(n - 2, -1, -1)):
@@ -170,17 +172,71 @@ def Stage_Optimisation(stages, required_dVp: float, payload_mass: float, startin
     return ISP, dV, M, m_e, m_s
 
 
+def create_combinations(min_number_stages: int = 2, max_number_stages: int = 3, available_propellants=["Solid", "RP1", "LH2"]):
+    """Generates all the possible and valid propellant configurations.
+
+    Args:
+        min_number_stages (int, optional): Minimum number of stages for the rocket. Defaults to 2.
+        max_number_stages (int, optional): Maximum number of stages for the rocket. Defaults to 3.
+        available_propellants (list, optional): List of all available propellants (should be ordered by possible stage use, lower to upper). Defaults to ["Solid", "RP1", "LH2"].
+
+    Returns:
+        List[List[str]]: List of all the possible combinations
+    """
+    from itertools import combinations_with_replacement
+    combinations = []
+    for k in range(min_number_stages, max_number_stages + 1):
+        combs = combinations_with_replacement(available_propellants, r=k)
+        for comb in combs:
+            if check_propellant_combination(comb):
+                combinations.append(list(comb))
+    return combinations
+
+
+def check_propellant_combination(combination):
+    """Verifies that Solid propellant can only be used as first stage and that LH2 cannot be used as first stage
+
+    Args:
+        combination (List[str]): a combination of propellants ordered by stage
+
+    Returns:
+        bool: is the combination possible ?
+    """
+    if combination[0].upper() == "LH2":
+        return False
+    if "Solid" in combination[1:]:
+        return False
+    return True
+
+
+def best_rocket(required_dVp: float, payload_mass: float, min_number_stages: int, max_number_stages: int, available_propellants, starting_b_value, min_stage1_mass, min_stageN_mass):
+
+    stages_combinations = create_combinations(
+        min_number_stages, max_number_stages, available_propellants)
+
+    best_mass = float('inf')  # initialization
+    for stages in stages_combinations:
+        ISP, dV, M, m_e, m_s = Stage_Optimisation(
+            stages, required_dVp, payload_mass, starting_b_value, min_stage1_mass, min_stageN_mass)
+
+        if M[0] < best_mass:
+            best_mass = M[0]
+            best_ISP, best_dV, best_M, best_m_e, best_m_s = ISP, dV, M, m_e, m_s
+            best_propellant_configuration = stages
+
+    return best_propellant_configuration, best_ISP, best_dV, best_M, best_m_e, best_m_s
+
+
 # -------------------- Main ----------------------
 
-
 if __name__ == "__main__":
+
     # <-- input the mission scenario
     azimut, Vf, Vi, Vl, dVp, m_cu = Injection_Requirements("mission3")
 
-    # <-- input the stages propellants, from bottom to top.
-    stages = ["solid", "LH2"]
-
-    ISP, dV, M, m_e, m_s = Stage_Optimisation(stages, dVp, m_cu)
+    # <-- input various parameters to automatically find the lightest rocket possible
+    stages, ISP, dV, M, m_e, m_s = best_rocket(dVp, m_cu, min_number_stages=2, max_number_stages=4, available_propellants=[
+                                               "Solid", "RP1", "LH2"], starting_b_value=1.0001, min_stage1_mass=500, min_stageN_mass=200)
 
     # ----------------- Prints -------------------
     print("\n-------------- Mission parameters --------------")
@@ -192,6 +248,7 @@ if __name__ == "__main__":
     print("\n-------------- Rocket parameters --------------")
     print(f"\nTotal propulsive Delta V = {sum(dV)}")
     print("\nTotal mass ", M[0])
+    print('\nPropellants used ', stages)
 
     for i in range(len(stages)):
         print("\n------------------------------------------------")

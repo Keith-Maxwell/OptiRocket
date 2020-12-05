@@ -1,7 +1,6 @@
 import numpy as np
 import importlib
 
-from numpy.core.numeric import Infinity
 import library.orbit_lib as lib
 
 
@@ -188,12 +187,12 @@ def create_combinations(min_number_stages: int = 2, max_number_stages: int = 3, 
     for k in range(min_number_stages, max_number_stages + 1):
         combs = combinations_with_replacement(available_propellants, r=k)
         for comb in combs:
-            if check_propellant_combination(comb):
+            if is_propellant_combination_allowed(comb):
                 combinations.append(list(comb))
     return combinations
 
 
-def check_propellant_combination(combination):
+def is_propellant_combination_allowed(combination):
     """Verifies that Solid propellant can only be used as first stage and that LH2 cannot be used as first stage
 
     Args:
@@ -202,14 +201,14 @@ def check_propellant_combination(combination):
     Returns:
         bool: is the combination possible ?
     """
-    if combination[0].upper() == "LH2":
+    if combination[0].upper() == "LH2":  # LH2 at first stage --> not allowed
         return False
-    if "Solid" in combination[1:]:
+    if "Solid" in combination[1:]:  # Solid at stage 2 or 3 --> not allowed
         return False
-    return True
+    return True  # all good, allowed
 
 
-def best_rocket(required_dVp: float, payload_mass: float, min_number_stages: int, max_number_stages: int, available_propellants, starting_b_value, min_stage1_mass, min_stageN_mass):
+def best_rocket(required_dVp: float, payload_mass: float, min_number_stages: int, max_number_stages: int, available_propellants, starting_b_value: float, min_stage1_mass: float, min_stageN_mass: float):
 
     stages_combinations = create_combinations(
         min_number_stages, max_number_stages, available_propellants)
@@ -219,7 +218,8 @@ def best_rocket(required_dVp: float, payload_mass: float, min_number_stages: int
         ISP, dV, M, m_e, m_s = Stage_Optimisation(
             stages, required_dVp, payload_mass, starting_b_value, min_stage1_mass, min_stageN_mass)
 
-        if M[0] < best_mass:
+        if M[0] < best_mass:  # New combination results in lighter rocket
+            # Store the best params
             best_mass = M[0]
             best_ISP, best_dV, best_M, best_m_e, best_m_s = ISP, dV, M, m_e, m_s
             best_propellant_configuration = stages
@@ -232,7 +232,7 @@ def best_rocket(required_dVp: float, payload_mass: float, min_number_stages: int
 if __name__ == "__main__":
 
     # <-- input the mission scenario
-    azimut, Vf, Vi, Vl, dVp, m_cu = Injection_Requirements("mission3")
+    azimut, Vf, Vi, Vl, dVp, m_cu = Injection_Requirements("mission1")
 
     # <-- input various parameters to automatically find the lightest rocket possible
     stages, ISP, dV, M, m_e, m_s = best_rocket(dVp, m_cu, min_number_stages=2, max_number_stages=4, available_propellants=[

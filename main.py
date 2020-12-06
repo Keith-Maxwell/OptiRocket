@@ -163,11 +163,11 @@ def Stage_Optimisation(stages, required_dVp: float, payload_mass: float, startin
                 (sum(m_e[i + 1:]) + sum(m_s[i + 1:]) + M[-1])
                     for i in range(n - 2, -1, -1)):
                 # Conditions are not fulfilled
-                b[n - 1] += 0.0001
+                b[n - 1] += 0.000001
                 continue
             # Conditions are fulfilled
             break
-        b[n - 1] += 0.0001
+        b[n - 1] += 0.000001
     return ISP, dV, M, m_e, m_s
 
 
@@ -227,16 +227,37 @@ def best_rocket(required_dVp: float, payload_mass: float, min_number_stages: int
     return best_propellant_configuration, best_ISP, best_dV, best_M, best_m_e, best_m_s
 
 
+def Orbital_elem_check(mission, injection_velocity):
+    
+    data = importlib.import_module("missions." + mission)
+    v = injection_velocity * 1e-3
+    r_p = data.Z_p + lib.const.EARTH_RADIUS
+    semi_major_axis = 1 / (( 2 / r_p ) - (v**2 / lib.const.EARTH_GRAV_CONST))
+    e = 1 - (r_p / semi_major_axis)
+    r_a = semi_major_axis * ( 1 + e )
+    z_a = r_a - lib.const.EARTH_RADIUS
+    
+    if z_a <= data.Z_a + 1 and z_a >= data.Z_a - 1 :
+        print("\n\nSuccess !")
+    else :
+        print("\nFailure you dum-dum !")
+        
+    print("Semi major axis = ", semi_major_axis)
+    print("Altitude at Apogee after injection = ", z_a)
+
+
 # -------------------- Main ----------------------
 
 if __name__ == "__main__":
 
     # <-- input the mission scenario
-    azimut, Vf, Vi, Vl, dVp, m_cu = Injection_Requirements("mission1")
+    mission = "mission2"
+    
+    azimut, Vf, Vi, Vl, dVp, m_cu = Injection_Requirements(mission)
 
     # <-- input various parameters to automatically find the lightest rocket possible
     stages, ISP, dV, M, m_e, m_s = best_rocket(dVp, m_cu, min_number_stages=2, max_number_stages=4, available_propellants=[
-                                               "Solid", "RP1", "LH2"], starting_b_value=1.0001, min_stage1_mass=500, min_stageN_mass=200)
+                                               "Solid", "RP1", "LH2"], starting_b_value=2, min_stage1_mass=500, min_stageN_mass=200)
 
     # ----------------- Prints -------------------
     print("\n-------------- Mission parameters --------------")
@@ -258,3 +279,5 @@ if __name__ == "__main__":
         print(f"\nMass of Stage {i+1} = {m_s[i] + m_e[i]}")
         print(f"Propellant mass stage {i+1} = {m_e[i]}")
         print(f"Structural mass stage {i+1} = {m_s[i]}")
+
+    Orbital_elem_check(mission, sum(dV) - Vl + Vi)

@@ -34,3 +34,31 @@ def test_get_azimuth():
 def test_get_deltaV_losses():
     assert lib.get_deltaV_losses(0) == 1387.50
     assert round(lib.get_deltaV_losses(410), 2) == 2230.59
+
+
+def test_check_masses():
+    rocket.mission_m_payload = 100
+    rocket.m_s = [1000, 400, 100]
+    rocket.m_stage = [10000, 4000, 1000]
+    rocket.M = [15100]
+    rocket.max_total_mass = 20000
+    rocket.masses_limits = {1: {"min": 500, "max": 2000},
+                            2: {"min": 150, "max": 1000}}
+    assert rocket._check_masses() == True
+    rocket.masses_limits[3] = {"min": 50, "max": 200}
+    assert rocket._check_masses() == True
+    rocket.m_s = [400, 400, 100]
+    assert rocket._check_masses() == False
+    rocket.m_s = [1000, 400, 100]
+    rocket.m_stage = [5000, 4000, 1000]
+    assert rocket._check_masses() == False
+
+
+def test_check_propellant_config():
+    assert rocket._check_propellant_config(["LH2", "RP1"]) == False
+    assert rocket._check_propellant_config(["RP1", "RP1"]) == True
+    assert rocket._check_propellant_config(["SOLID", "RP1"]) == True
+    assert rocket._check_propellant_config(["solid", "rp1"]) == True
+    assert rocket._check_propellant_config(["solid", "SOLID"]) == False
+    rocket.add_available_propellant("Hydrazine", [2, 3], 290, 240, 0.15)
+    assert rocket._check_propellant_config(["solid", "hydrazine"]) == True

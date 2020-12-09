@@ -1,8 +1,7 @@
-import workinprogress as script
-import library.orbit_lib as lib
-
 import pytest
 
+import library.orbit_lib as lib
+import workinprogress as script
 
 rocket = script.OptiRocket()
 
@@ -42,8 +41,7 @@ def test_check_masses():
     rocket.m_stage = [10000, 4000, 1000]
     rocket.M = [15100]
     rocket.max_total_mass = 20000
-    rocket.masses_limits = {1: {"min": 500, "max": 2000},
-                            2: {"min": 150, "max": 1000}}
+    rocket.masses_limits = {1: {"min": 500, "max": 2000}, 2: {"min": 150, "max": 1000}}
     assert rocket._check_masses() == True
     rocket.masses_limits[3] = {"min": 50, "max": 200}
     assert rocket._check_masses() == True

@@ -1,20 +1,32 @@
 import importlib
+
 import numpy as np
+
 import library.orbit_lib as lib
 
 
-class OptiRocket():
-
+class OptiRocket:
     def __init__(self):
         self.available_propellants = {
             "RP1": {"stages": [1, 2, 3], "ISP": 330, "mean_ISP": 287, "struc_index": 0.15},
             "LH2": {"stages": [2, 3], "ISP": 440, "mean_ISP": None, "struc_index": 0.22},
-            "SOLID": {"stages": [1], "ISP": 300, "mean_ISP": 260, "struc_index": 0.10}}
+            "SOLID": {"stages": [1], "ISP": 300, "mean_ISP": 260, "struc_index": 0.10},
+        }
         self.masses_limits = {}
 
-    def mission(self, filename: str = None, client_name: str = None, altitude_perigee: int = None, altitude_apogee: int = None, inclination: float = None, mass_payload: float = None, launchpad: str = None, launchpad_latitude: float = None):
+    def mission(
+        self,
+        filename: str = None,
+        client_name: str = None,
+        altitude_perigee: int = None,
+        altitude_apogee: int = None,
+        inclination: float = None,
+        mass_payload: float = None,
+        launchpad: str = None,
+        launchpad_latitude: float = None,
+    ):
 
-        if filename != None:
+        if filename is not None:
             data = importlib.import_module(filename)
             self.client_name = data.client_name
             self.mission_Z_p = data.Z_p
@@ -33,25 +45,26 @@ class OptiRocket():
             self.mission_launchpad = launchpad
             self.mission_launchpad_latitude = launchpad_latitude
 
-        necessary_attributes = [self.mission_Z_p, self.mission_Z_a,
-                                self.mission_inc, self.mission_m_payload, self.mission_launchpad_latitude]
-        if any(attribute == None for attribute in necessary_attributes):
-            raise AttributeError(
-                "One or more necessary argument is not defined")
+        necessary_attributes = [
+            self.mission_Z_p,
+            self.mission_Z_a,
+            self.mission_inc,
+            self.mission_m_payload,
+            self.mission_launchpad_latitude,
+        ]
+        if any(attribute is None for attribute in necessary_attributes):
+            raise AttributeError("One or more necessary argument is not defined")
 
     def compute_requirements(self):
 
         # Calculate the azimuth (in radians)
-        self.azimuth = lib.get_azimuth(
-            self.mission_inc, self.mission_launchpad_latitude)
+        self.azimuth = lib.get_azimuth(self.mission_inc, self.mission_launchpad_latitude)
 
         # orbit velocity (m/s)
-        self.V_final = lib.get_orbit_velocity(
-            self.mission_Z_p, self.mission_Z_a)
+        self.V_final = lib.get_orbit_velocity(self.mission_Z_p, self.mission_Z_a)
 
         # Initial velocity due to Earth Rotation (m/s)
-        self.V_init = lib.get_initial_velocity(
-            self.mission_launchpad_latitude, self.azimuth)
+        self.V_init = lib.get_initial_velocity(self.mission_launchpad_latitude, self.azimuth)
 
         # Delta V losses due to atmospheric drag and more (m/s)
         self.V_losses = lib.get_deltaV_losses(self.mission_Z_p)
@@ -60,15 +73,18 @@ class OptiRocket():
         self.required_dVp = self.V_final - self.V_init + self.V_losses
 
     def add_available_propellant(self, name, possible_stages, isp, mean_isp, structural_index):
-        self.available_propellants[name.upper()] = {"stages": possible_stages,
-                                                    "ISP": isp, "mean_ISP": mean_isp, "struc_index": structural_index}
+        self.available_propellants[name.upper()] = {
+            "stages": possible_stages,
+            "ISP": isp,
+            "mean_ISP": mean_isp,
+            "struc_index": structural_index,
+        }
 
     def __get_propellant_specs(self, stages):
         isp = []
         k = []
         for i, prop in enumerate(stages):
-            isp.append(
-                self.available_propellants[prop.upper()]["mean_ISP" if i == 0 else "ISP"])
+            isp.append(self.available_propellants[prop.upper()]["mean_ISP" if i == 0 else "ISP"])
             k.append(self.available_propellants[prop.upper()]["struc_index"])
         return isp, k
 
@@ -80,9 +96,8 @@ class OptiRocket():
         return True
 
     def stage_optimization(self, stages, starting_b_value=1, step=0.0001):
-        if self._check_propellant_config(stages) == False:
-            raise Exception(
-                "Invalid stage configuration. Check the validity of the propellants.")
+        if self._check_propellant_config(stages) is False:
+            raise Exception("Invalid stage configuration. Check the validity of the propellants.")
         n = len(stages)
         ISP, k = self.__get_propellant_specs(stages)
         self.a = [0] * n
@@ -101,13 +116,14 @@ class OptiRocket():
 
         self.b[n - 1] = starting_b_value
         while True:
-            self.dV[n - 1] = lib.const.EARTH_GRAV_SEA_LVL * \
-                ISP[n - 1] * np.log(self.b[n - 1])
+            self.dV[n - 1] = lib.const.EARTH_GRAV_SEA_LVL * ISP[n - 1] * np.log(self.b[n - 1])
             for j in range(n - 2, -1, -1):
-                self.b[j] = 1 / self.Omega[j] * (1 - ISP[j + 1] / ISP[j] *
-                                                 (1 - self.Omega[j + 1] * self.b[j + 1]))
-                self.dV[j] = lib.const.EARTH_GRAV_SEA_LVL * \
-                    ISP[j] * np.log(self.b[j])
+                self.b[j] = (
+                    1
+                    / self.Omega[j]
+                    * (1 - ISP[j + 1] / ISP[j] * (1 - self.Omega[j + 1] * self.b[j + 1]))
+                )
+                self.dV[j] = lib.const.EARTH_GRAV_SEA_LVL * ISP[j] * np.log(self.b[j])
 
             if sum(self.dV) <= self.required_dVp:  # not good, continue
                 self.b[n - 1] += step
@@ -119,7 +135,7 @@ class OptiRocket():
                     self.m_s[i] = k[i] * self.m_e[i]
                     self.m_stage[i] = self.m_e[i] + self.m_s[i]
 
-                if self._check_masses() == False:
+                if self._check_masses() is False:
                     # Conditions are not fulfilled
                     self.b[n - 1] += step
                     continue
@@ -137,9 +153,11 @@ class OptiRocket():
         check = True
         for i in range(len(self.m_stage)):
             try:
-                if self.m_s[i] > self.masses_limits[i+1]["max"] \
-                    or self.m_s[i] < self.masses_limits[i+1]["min"] \
-                        or self.m_stage[i] < sum(self.m_stage[i+1:]) + self.mission_m_payload:
+                if (
+                    self.m_s[i] > self.masses_limits[i + 1]["max"]
+                    or self.m_s[i] < self.masses_limits[i + 1]["min"]
+                    or self.m_stage[i] < sum(self.m_stage[i + 1 :]) + self.mission_m_payload
+                ):
                     check = False
             except KeyError:  # if a stage limit is not defined, just ignore
                 continue

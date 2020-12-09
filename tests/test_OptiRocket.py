@@ -1,6 +1,5 @@
-import pytest
-
 import library.orbit_lib as lib
+import pytest
 import workinprogress as script
 
 rocket = script.OptiRocket()
@@ -42,21 +41,21 @@ def test_check_masses():
     rocket.M = [15100]
     rocket.max_total_mass = 20000
     rocket.masses_limits = {1: {"min": 500, "max": 2000}, 2: {"min": 150, "max": 1000}}
-    assert rocket._check_masses() == True
+    assert rocket._check_masses() is True
     rocket.masses_limits[3] = {"min": 50, "max": 200}
-    assert rocket._check_masses() == True
+    assert rocket._check_masses() is True
     rocket.m_s = [400, 400, 100]
-    assert rocket._check_masses() == False
+    assert rocket._check_masses() is False
     rocket.m_s = [1000, 400, 100]
     rocket.m_stage = [5000, 4000, 1000]
-    assert rocket._check_masses() == False
+    assert rocket._check_masses() is False
 
 
 def test_check_propellant_config():
-    assert rocket._check_propellant_config(["LH2", "RP1"]) == False
-    assert rocket._check_propellant_config(["RP1", "RP1"]) == True
-    assert rocket._check_propellant_config(["SOLID", "RP1"]) == True
-    assert rocket._check_propellant_config(["solid", "rp1"]) == True
-    assert rocket._check_propellant_config(["solid", "SOLID"]) == False
+    assert rocket._check_propellant_config(["LH2", "RP1"]) is False
+    assert rocket._check_propellant_config(["RP1", "RP1"]) is True
+    assert rocket._check_propellant_config(["SOLID", "RP1"]) is True
+    assert rocket._check_propellant_config(["solid", "rp1"]) is True
+    assert rocket._check_propellant_config(["solid", "SOLID"]) is False
     rocket.add_available_propellant("Hydrazine", [2, 3], 290, 240, 0.15)
-    assert rocket._check_propellant_config(["solid", "hydrazine"]) == True
+    assert rocket._check_propellant_config(["solid", "hydrazine"]) is True

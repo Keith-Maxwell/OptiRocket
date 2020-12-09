@@ -25,6 +25,21 @@ class OptiRocket:
         launchpad: str = None,
         launchpad_latitude: float = None,
     ):
+        """Defines the mission to build the rocket for. Can be defined manually or in a python file.
+
+        Args:
+            filename (str, optional): Path/name of the file containing the mission data.
+            client_name (str, optional): Name of the mission customer.
+            altitude_perigee (int, optional): Altitude in km of the perigee at injection.
+            altitude_apogee (int, optional): Altitude in km of the apogee at injection.
+            inclination (float, optional): Required orbit inclination.
+            mass_payload (float, optional): Mass of the payload. Defaults to None.
+            launchpad (str, optional): Name of the launch location.
+            launchpad_latitude (float, optional): Latitude in degrees of the launchpad.
+
+        Raises:
+            AttributeError: If a necessary attribute is not given, raises an exception.
+        """
 
         if filename is not None:
             data = importlib.import_module(filename)
@@ -45,17 +60,25 @@ class OptiRocket:
             self.mission_launchpad = launchpad
             self.mission_launchpad_latitude = launchpad_latitude
 
-        necessary_attributes = [
-            self.mission_Z_p,
-            self.mission_Z_a,
-            self.mission_inc,
-            self.mission_m_payload,
-            self.mission_launchpad_latitude,
-        ]
-        if any(attribute is None for attribute in necessary_attributes):
-            raise AttributeError("One or more necessary argument is not defined")
+        necessary_attributes = {
+            "altitude_perigee": self.mission_Z_p,
+            "altitude_apogee": self.mission_Z_a,
+            "inclination": self.mission_inc,
+            "mass_payload": self.mission_m_payload,
+            "launchpad_latitude": self.mission_launchpad_latitude,
+        }
+        for key, value in necessary_attributes.items():
+            if value is None:
+                raise AttributeError(f"{key} is necessary but is not defined")
 
     def compute_requirements(self):
+        """Calculates the main requirements from the mission profile specified. Determines :
+        - azimuth,
+        - V_final, Orbital velocity at required altitude
+        - V_init, Initial velocity due to Earth rotation
+        - V_losses, velocity losses due to atmospheric drag
+        - required_dVp, Total propulsive DeltaV to reach orbit
+        """
 
         # Calculate the azimuth (in radians)
         self.azimuth = lib.get_azimuth(self.mission_inc, self.mission_launchpad_latitude)
@@ -72,7 +95,18 @@ class OptiRocket:
         # Propulsive dV required to get to the desired orbit (m/s)
         self.required_dVp = self.V_final - self.V_init + self.V_losses
 
-    def add_available_propellant(self, name, possible_stages, isp, mean_isp, structural_index):
+    def add_available_propellant(
+        self, name: str, possible_stages, isp: float, mean_isp: float, structural_index: float
+    ):
+        """Allows to add a custom propellant to the list of availlable propellants.
+
+        Args:
+            name (str): Code name of the propellant
+            possible_stages (List[int]): List of the stages where this new propellant can be used
+            isp (float): Specific impulse (vacuum)
+            mean_isp (float): Mean specific impulse (Atmospheric)
+            structural_index (float): Ratio of propellant mass over structural mass
+        """
         self.available_propellants[name.upper()] = {
             "stages": possible_stages,
             "ISP": isp,
@@ -89,6 +123,15 @@ class OptiRocket:
         return isp, k
 
     def _check_propellant_config(self, propellant_config):
+        """Checks if the config provided is valid.
+
+        Args:
+            propellant_config (List[str]): Ordered list of the propellant names.
+            First item is the first stage.
+
+        Returns:
+            bool: True -> OK, False -> NOK
+        """
         for i, prop in enumerate(propellant_config, start=1):
             if i not in self.available_propellants[prop.upper()]["stages"]:
                 print(f"{prop.upper()} cannot be used for stage {i}")
@@ -143,13 +186,30 @@ class OptiRocket:
                     # Conditions are fulfilled
                     break
 
-    def set_masses_limits(self, stage, min, max):
+    def set_masses_limits(self, stage: int, min: float, max: float):
+        """Sets the lower and upper limits on the structural mass of a stage
+
+        Args:
+            stage (int): Number of the stage
+            min (float): minimum structural mass in kg
+            max (float): maximum structural mass in kg
+        """
         self.masses_limits[stage] = {"min": min, "max": max}
 
-    def set_max_total_mass(self, max_total_mass):
+    def set_max_total_mass(self, max_total_mass: float):
+        """Sets the total maximum mass of the rocket, fully fueled.
+
+        Args:
+            max_total_mass (float): Maximum mass of the rocket
+        """
         self.max_total_mass = max_total_mass
 
     def _check_masses(self):
+        """Verifies the masses correspond to the limits. Returns True if no limits have been set
+
+        Returns:
+            bool: whether the mass is in the limits or not
+        """
         check = True
         for i in range(len(self.m_stage)):
             try:
@@ -173,6 +233,7 @@ if __name__ == "__main__":
 
     rocket = OptiRocket()
     rocket.mission(filename="missions.mission2")
+    rocket.mission(inclination=12)
     rocket.compute_requirements()
     rocket.add_available_propellant("Hydrazine", [2, 3], 290, 240, 0.15)
     rocket.set_masses_limits(1, 500, 100000)

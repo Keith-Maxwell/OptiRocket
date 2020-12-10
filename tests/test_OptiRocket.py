@@ -1,12 +1,17 @@
-import library.orbit_lib as lib
+import os
+import sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, "optirocket"))
+
 import pytest
-import workinprogress as script
+from optirocket import workinprogress as script
+from optirocket.library import orbit_lib as lib
 
 rocket = script.OptiRocket()
 
 
 def test_init():
-    rocket.mission("missions.mission1")
+    rocket.mission("missions.ISScargo")
     assert rocket.client_name == "Roscosmos"
     assert rocket.mission_m_payload == 32000
     with pytest.raises(AttributeError):
@@ -14,10 +19,10 @@ def test_init():
 
 
 def test_requirements():
-    rocket.mission(filename="missions.mission2")
+    rocket.mission(filename="missions.POLARsat")
     rocket.compute_requirements()
     assert round(rocket.azimuth, 10) == 0
-    rocket.mission(filename="missions.mission1")
+    rocket.mission(filename="missions.ISScargo")
     rocket.compute_requirements()
     assert round(rocket.azimuth, 1) == 62.6
 

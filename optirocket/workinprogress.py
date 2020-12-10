@@ -2,7 +2,7 @@ import importlib
 
 import numpy as np
 
-import library.orbit_lib as lib
+from library import orbit_lib as lib
 
 
 class OptiRocket:
@@ -232,8 +232,8 @@ class OptiRocket:
 if __name__ == "__main__":
 
     rocket = OptiRocket()
-    rocket.mission(filename="missions.mission2")
-    rocket.mission(inclination=12)
+    rocket.mission(filename="missions.POLARsat")
+    # rocket.mission(inclination=12)
     rocket.compute_requirements()
     rocket.add_available_propellant("Hydrazine", [2, 3], 290, 240, 0.15)
     rocket.set_masses_limits(1, 500, 100000)
@@ -242,3 +242,4 @@ if __name__ == "__main__":
     rocket.stage_optimization(["RP1", "RP1", "LH2"])
     print(rocket.m_s)
     print(rocket.dV)
+    print("OK")

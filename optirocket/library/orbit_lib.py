@@ -1,6 +1,6 @@
 import numpy as np
 
-import library.constants as const
+from library import constants as const
 
 
 def get_azimuth(inclination: float, launchpad_latitude: float) -> float:
@@ -8,8 +8,10 @@ def get_azimuth(inclination: float, launchpad_latitude: float) -> float:
     The azimuth changes in function of the targeted orbit as well as the position of the launchpad.
 
     Args:
-        inclination (float): inclination (in degrees) of the targeted orbital plane compared to the equatorial plane.
-        launchpad_latitude (float): latitude of the chosen launchpad (in degrees).
+        inclination (float): inclination (in degrees) of the targeted
+        orbital plane compared to the equatorial plane.
+        launchpad_latitude (float): latitude of the chosen launchpad
+        (in degrees).
 
     Returns:
         float: Azimuth of the launch.
@@ -20,7 +22,8 @@ def get_azimuth(inclination: float, launchpad_latitude: float) -> float:
 
 
 def get_deltaV_losses(aim_altitude: float) -> float:
-    """Estimates the losses due to various sources, including atmospheric drag, using a very simplified equation.
+    """Estimates the losses due to various sources, including atmospheric drag,
+    using a very simplified equation.
     The result is the amount of Delta V (ie: the velocity) lost during ascent of the rocket.
 
     Args:
@@ -33,8 +36,10 @@ def get_deltaV_losses(aim_altitude: float) -> float:
 
 
 def get_orbit_velocity(perigee: float, apogee: float) -> float:
-    """Gives the orbital velocity at a given altitude. Used for computing the minimal required velocity to get to orbit.
-    This velocity depends only on the shape of the orbit : its apogee and perigee. The result is the velocity at perigee.
+    """Gives the orbital velocity at a given altitude.
+    Used for computing the minimal required velocity to get to orbit.
+    This velocity depends only on the shape of the orbit :
+    its apogee and perigee. The result is the velocity at perigee.
 
     Args:
         perigee (float): Altitude of the lowest point of the orbit (in km)
@@ -56,10 +61,11 @@ def get_initial_velocity(launchpad_latitude: float, azimuth: float) -> float:
 
     Args:
         launchpad_latitude (float): Latitude (in degrees) of the launchpad
-        azimuth (float): Azimuth (in degrees) of the launch. The direction in which the rocket goes.
+        azimuth (float): Azimuth (in degrees) of the launch.
 
     Returns:
-        float: Initial velocity (in m/s) that the rocket gets from Earth rotation. Can be positive or negative.
+        float: Initial velocity (in m/s) that the rocket gets from Earth rotation.
+        Can be positive or negative.
     """
     return (
         const.EARTH_ROT_RATE

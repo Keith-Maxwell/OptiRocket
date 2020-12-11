@@ -10,33 +10,47 @@ rocket = OptiRocket()
 
 there are two ways to define the mission. Import the mission file or manually set the parameters.
 
-1. Import from mission file
+### Import from mission file
 
-   If you have a mission file, you can import it directly. A mission file is a `.json` file containing all the info needed. ([Template](optirocket/missions/GEOsat.json)).
+If you have a mission file, you can import it directly. A mission file is a `.json` file containing all the info needed. ([Template](optirocket/missions/GEOsat.json)).
 
-   To import the mission file, simply call :
+To import the mission file, simply call :
 
-   ```py
-   rocket.mission(filename="path/to/file.json")
-   ```
+```py
+rocket.mission(filename="path/to/file.json")
+```
 
-1. Manually specify the parameters
+#### Default missions
 
-   ```py
-   rocket.mission(client_name="Roscosmos",
-                  altitude_perigee= 410,
-                  altitude_apogee= 410,
-                  inclination= 51.6,
-                  mass_payload= 32000,
-                  launchpad= "Baikonur",
-                  launchpad_latitude= 45.6)
-   ```
+|                                 | ISScargo.json | POLARsat.json | GEOsat.json |  SSOsat.json   | LEOsat.json |
+| ------------------------------- | :-----------: | :-----------: | :---------: | :------------: | :---------: |
+| Client                          |   Roscosmos   |   Military    |     ESA     |      NASA      |     ESA     |
+| Injection/Altitude perigee (km) |      410      |      340      |     200     |      567       |     300     |
+| Altitude apogee (km)            |      410      |      340      |    35786    |      567       |     300     |
+| Inclination (degrees)           |     51.6      |      90       |     5.2     |      97.6      |     49      |
+| Mass of the payload (kg)        |     32000     |      290      |    3800     |      1150      |     300     |
+| Launchpad                       |   Baikonur    |  Vandenberg   |   Kourou    | Cape Canaveral |   Kourou    |
+| Launchpad latitude (degrees)    |     45.6      |     34.7      |     5.2     |      28.5      |     5.2     |
+
+### Manually specify the parameters
+
+```py
+rocket.mission(client_name="Roscosmos",
+               altitude_perigee= 410,
+               altitude_apogee= 410,
+               inclination= 51.6,
+               mass_payload= 32000,
+               launchpad= "Baikonur",
+               launchpad_latitude= 45.6)
+```
 
 The attributes `client_name` and `launchpad` are optional, but all the others are mandatory.
 
 ## Compute the requirements
 
 The mission defines the altitude and inclination of the targeted orbit. We can determine the required velocity, the losses due to atmospheric drag, the azimuth of the launch, etc...
+
+To prepare the optimization process, use the method :
 
 ```py
 rocket.compute_requirements()
@@ -69,6 +83,8 @@ Using the same name as an already existing propellant will overwrite it. The lis
 ## Setting the limits on the mass
 
 Maybe your rocket must be constrained regarding its mass. In this case, you can manually set the min and max values. These values will be respected by the optimization algorithm.
+
+By default, there are no limits.
 
 ### Minimum and maximum structural mass
 

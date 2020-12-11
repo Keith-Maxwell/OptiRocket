@@ -11,7 +11,7 @@ rocket = script.OptiRocket()
 
 
 def test_init():
-    rocket.mission("missions.ISScargo")
+    rocket.mission("optirocket/missions/ISScargo.json")
     assert rocket.client_name == "Roscosmos"
     assert rocket.mission_m_payload == 32000
     with pytest.raises(AttributeError):
@@ -19,10 +19,10 @@ def test_init():
 
 
 def test_requirements():
-    rocket.mission(filename="missions.POLARsat")
+    rocket.mission(filename="optirocket/missions/POLARsat.json")
     rocket.compute_requirements()
     assert round(rocket.azimuth, 10) == 0
-    rocket.mission(filename="missions.ISScargo")
+    rocket.mission(filename="optirocket/missions/ISScargo.json")
     rocket.compute_requirements()
     assert round(rocket.azimuth, 1) == 62.6
 

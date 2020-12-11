@@ -1,4 +1,4 @@
-import importlib
+import json
 
 import numpy as np
 
@@ -42,14 +42,15 @@ class OptiRocket:
         """
 
         if filename is not None:
-            data = importlib.import_module(filename)
-            self.client_name = data.client_name
-            self.mission_Z_p = data.Z_p
-            self.mission_Z_a = data.Z_a
-            self.mission_inc = data.inc
-            self.mission_m_payload = data.m_payload
-            self.mission_launchpad = data.launchpad
-            self.mission_launchpad_latitude = data.launchpad_latitude
+            with open(filename) as file:
+                data = json.load(file)
+            self.client_name = data["client_name"]
+            self.mission_Z_p = data["altitude_perigee"]
+            self.mission_Z_a = data["altitude_apogee"]
+            self.mission_inc = data["inclination"]
+            self.mission_m_payload = data["mass_payload"]
+            self.mission_launchpad = data["launchpad"]
+            self.mission_launchpad_latitude = data["launchpad_latitude"]
 
         else:
             self.client_name = client_name
@@ -73,26 +74,16 @@ class OptiRocket:
 
     def compute_requirements(self):
         """Calculates the main requirements from the mission profile specified. Determines :
-        - azimuth,
-        - V_final, Orbital velocity at required altitude
-        - V_init, Initial velocity due to Earth rotation
-        - V_losses, velocity losses due to atmospheric drag
-        - required_dVp, Total propulsive DeltaV to reach orbit
+        - azimuth (in degrees),
+        - V_final, Orbital velocity at required altitude (in m/s)
+        - V_init, Initial velocity due to Earth rotation (in m/s)
+        - V_losses, velocity losses due to atmospheric drag (in m/s)
+        - required_dVp, Total propulsive DeltaV to reach orbit (in m/s)
         """
-
-        # Calculate the azimuth (in radians)
         self.azimuth = lib.get_azimuth(self.mission_inc, self.mission_launchpad_latitude)
-
-        # orbit velocity (m/s)
         self.V_final = lib.get_orbit_velocity(self.mission_Z_p, self.mission_Z_a)
-
-        # Initial velocity due to Earth Rotation (m/s)
         self.V_init = lib.get_initial_velocity(self.mission_launchpad_latitude, self.azimuth)
-
-        # Delta V losses due to atmospheric drag and more (m/s)
         self.V_losses = lib.get_deltaV_losses(self.mission_Z_p)
-
-        # Propulsive dV required to get to the desired orbit (m/s)
         self.required_dVp = self.V_final - self.V_init + self.V_losses
 
     def add_available_propellant(
@@ -232,14 +223,12 @@ class OptiRocket:
 if __name__ == "__main__":
 
     rocket = OptiRocket()
-    rocket.mission(filename="missions.POLARsat")
-    # rocket.mission(inclination=12)
+    rocket.mission(filename="optirocket/missions/POLARsat.json")
     rocket.compute_requirements()
     rocket.add_available_propellant("Hydrazine", [2, 3], 290, 240, 0.15)
     rocket.set_masses_limits(1, 500, 100000)
     rocket.set_masses_limits(2, 200, 80000)
     rocket.set_masses_limits(3, 200, 50000)
     rocket.stage_optimization(["RP1", "RP1", "LH2"])
-    print(rocket.m_s)
-    print(rocket.dV)
+
     print("OK")

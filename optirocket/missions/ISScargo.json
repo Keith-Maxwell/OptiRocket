@@ -1,0 +1,9 @@
+{
+    "client_name":"Roscosmos",
+    "altitude_perigee" : 410, 
+    "altitude_apogee" : 410, 
+    "inclination" : 51.6, 
+    "mass_payload" : 32000, 
+    "launchpad" : "Baikonur",
+    "launchpad_latitude" : 45.6
+}

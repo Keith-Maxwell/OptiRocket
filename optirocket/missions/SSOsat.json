@@ -1,0 +1,9 @@
+{
+    "client_name":"NASA",
+    "altitude_perigee" : 567, 
+    "altitude_apogee" : 567, 
+    "inclination" : 97.6, 
+    "mass_payload" : 1150, 
+    "launchpad" : "Cae Canaveral",
+    "launchpad_latitude" : 28.5
+}

@@ -12,25 +12,27 @@ there are two ways to define the mission. Import the mission file or manually se
 
 1. Import from mission file
 
-   I have a mission file located in `missions/` folder. the file is a python file so it ends with `.py` but the extension is not included in the call.
+   If you have a mission file, you can import it directly. A mission file is a `.json` file containing all the info needed. ([Template](optirocket/missions/GEOsat.json)).
+
+   To import the mission file, simply call :
 
    ```py
-   rocket.mission(filename="mission.mission1")
+   rocket.mission(filename="path/to/file.json")
    ```
 
 1. Manually specify the parameters
 
    ```py
    rocket.mission(client_name="Roscosmos",
-               altitude_perigee= 410,
-               altitude_apogee= 410,
-               inclination= 51.6,
-               mass_payload= 32000,
-               launchpad= "Baikonur",
-               launchpad_latitude= 45.6)
+                  altitude_perigee= 410,
+                  altitude_apogee= 410,
+                  inclination= 51.6,
+                  mass_payload= 32000,
+                  launchpad= "Baikonur",
+                  launchpad_latitude= 45.6)
    ```
 
-   The attributes `client_name` and `launchpad` are optional, but all the others are mandatory.
+The attributes `client_name` and `launchpad` are optional, but all the others are mandatory.
 
 ## Compute the requirements
 
@@ -62,10 +64,40 @@ rocket.add_available_propellant(name="Hydrazine",
                                 structural_index=0.15)
 ```
 
-Using the same name as an already existing propellant will overwrite it.
+Using the same name as an already existing propellant will overwrite it. The list of available propellants is stored in the variable `available_propellants`
 
 ## Setting the limits on the mass
 
+Maybe your rocket must be constrained regarding its mass. In this case, you can manually set the min and max values. These values will be respected by the optimization algorithm.
+
 ### Minimum and maximum structural mass
 
+If you have constraints on the rocket structural mass, you can input them by using the method `set_masses_limits()`. This is optional. The arguments to pass the method are the `stage`, the `min` and the `max`structural mass. This way, each stage can have different limits.
+
+For example, if your stage 1 must be over 2000 kg and under 10000 kg, you can call the method like this :
+
+```py
+rocket.set_masses_limits(stage=1, min=2000, max=10000)
+```
+
 ### Maximum total mass
+
+The launchpad may require the rocket to be under a certain mass. If this is the case, you can define the maximal total mass of the rocket (fully fueled) using the method `set_max_total_mass()`.
+
+For example, if your launchpad limits to 1 200 000 kg :
+
+```py
+rocket.set_max_total_mass(max_total_mass=1200000)
+```
+
+## Stage optimization
+
+### Optimizing for a specific propellant combination
+
+In the case you know which propellant and stages you want to use, you can optimize the dimensions of your rocket by simply giving the list of the propellants, in order of use, from first stage to last stage to the method `stage_optimization()`.
+
+For example, if your desired rocket has a Solid first stage, a RP1 second stage, and a LH2 third stage, simply pass the list `["SOLID", "RP1", "LH2"]`
+
+```py
+rocket.stage_optimization(["SOLID", "RP1", "LH2"])
+```

@@ -14,6 +14,77 @@ class OptiRocket:
         }
         self.masses_limits = {}
 
+    def _check_masses(self):
+        """Verifies the masses correspond to the limits. Returns True if no limits have been set
+
+        Returns:
+            bool: whether the mass is in the limits or not
+        """
+        check = True
+        for i in range(len(self.m_stage)):
+            try:
+                if (
+                    self.m_s[i] > self.masses_limits[i + 1]["max"]
+                    or self.m_s[i] < self.masses_limits[i + 1]["min"]
+                    or self.m_stage[i] < sum(self.m_stage[i + 1 :]) + self.mission_m_payload
+                ):
+                    check = False
+            except KeyError:  # if a stage limit is not defined, just ignore
+                continue
+        try:
+            if self.M[0] > self.max_total_mass:
+                check = False
+        except AttributeError:  # if max_total_mass is not defined, just ignore
+            pass
+        return check
+
+    def _check_propellant_config(self, propellant_config, show_output: bool = True):
+        """Checks if the config provided is valid.
+
+        Args:
+            propellant_config (List[str]): Ordered list of the propellant names.
+            First item is the first stage.
+            show_output (bool): True will print when a propellant combination cannot be used.
+
+        Returns:
+            bool: True -> OK, False -> NOK
+        """
+        for stage, prop in enumerate(propellant_config, start=1):
+            if stage not in self.available_propellants[prop.upper()]["stages"]:
+                if show_output is True:
+                    print(f"{prop.upper()} cannot be used for stage {stage}")
+                return False
+        return True
+
+    def _create_combinations(self, min_number_stages: int, max_number_stages: int):
+        """Generates all the possible and valid propellant configurations.
+
+        Args:
+            min_number_stages (int): Minimum number of stages
+            max_number_stages (int): Maximum number of stages
+
+        Returns:
+            List: all the possible and valid combinations
+        """
+        from itertools import product
+
+        props = list(self.available_propellants)
+        valid_combinations = []
+        for k in range(min_number_stages, max_number_stages + 1):
+            combinations = list(product(props, repeat=k))
+            for comb in combinations:
+                if self._check_propellant_config(comb, show_output=False):
+                    valid_combinations.append(comb)
+        return valid_combinations
+
+    def _get_propellant_specs(self, stages):
+        isp = []
+        k = []
+        for i, prop in enumerate(stages):
+            isp.append(self.available_propellants[prop.upper()]["mean_ISP" if i == 0 else "ISP"])
+            k.append(self.available_propellants[prop.upper()]["struc_index"])
+        return isp, k
+
     def mission(
         self,
         filename: str = None,
@@ -86,6 +157,24 @@ class OptiRocket:
         self.V_losses = lib.get_deltaV_losses(self.mission_Z_p)
         self.required_dVp = self.V_final - self.V_init + self.V_losses
 
+    def set_masses_limits(self, stage: int, min: float, max: float):
+        """Sets the lower and upper limits on the structural mass of a stage
+
+        Args:
+            stage (int): Number of the stage
+            min (float): minimum structural mass in kg
+            max (float): maximum structural mass in kg
+        """
+        self.masses_limits[stage] = {"min": min, "max": max}
+
+    def set_max_total_mass(self, max_total_mass: float):
+        """Sets the total maximum mass of the rocket, fully fueled.
+
+        Args:
+            max_total_mass (float): Maximum mass of the rocket
+        """
+        self.max_total_mass = max_total_mass
+
     def add_available_propellant(
         self, name: str, possible_stages, isp: float, mean_isp: float, structural_index: float
     ):
@@ -105,35 +194,25 @@ class OptiRocket:
             "struc_index": structural_index,
         }
 
-    def __get_propellant_specs(self, stages):
-        isp = []
-        k = []
-        for i, prop in enumerate(stages):
-            isp.append(self.available_propellants[prop.upper()]["mean_ISP" if i == 0 else "ISP"])
-            k.append(self.available_propellants[prop.upper()]["struc_index"])
-        return isp, k
-
-    def _check_propellant_config(self, propellant_config):
-        """Checks if the config provided is valid.
+    def stage_optimization(self, stages, starting_b_value: float = 1, step: float = 0.0001):
+        """finds the most optimized rocket configuration using the given stage propellant list.
+        A list of n elements will result in a rocket with n stages.
 
         Args:
-            propellant_config (List[str]): Ordered list of the propellant names.
-            First item is the first stage.
+            stages (List[str]): List of propellants used stage by stage in order from bottom to top
+            starting_b_value (int, optional): Value of the coeff b at the start of the method.
+            Lower number means better chance to find the solution, but longer computing time.
+            Defaults to 1.
+            step (float, optional): iteration step.
+            Higher means faster computation but lower precision. Defaults to 0.0001.
 
-        Returns:
-            bool: True -> OK, False -> NOK
+        Raises:
+            Exception: Invalid stage configuration. Check the validity of the propellants.
         """
-        for i, prop in enumerate(propellant_config, start=1):
-            if i not in self.available_propellants[prop.upper()]["stages"]:
-                print(f"{prop.upper()} cannot be used for stage {i}")
-                return False
-        return True
-
-    def stage_optimization(self, stages, starting_b_value=1, step=0.0001):
         if self._check_propellant_config(stages) is False:
             raise Exception("Invalid stage configuration. Check the validity of the propellants.")
         n = len(stages)
-        ISP, k = self.__get_propellant_specs(stages)
+        ISP, k = self._get_propellant_specs(stages)
         self.a = [0] * n
         self.b = [0] * n
         self.dV = [0] * n
@@ -177,47 +256,16 @@ class OptiRocket:
                     # Conditions are fulfilled
                     break
 
-    def set_masses_limits(self, stage: int, min: float, max: float):
-        """Sets the lower and upper limits on the structural mass of a stage
-
-        Args:
-            stage (int): Number of the stage
-            min (float): minimum structural mass in kg
-            max (float): maximum structural mass in kg
-        """
-        self.masses_limits[stage] = {"min": min, "max": max}
-
-    def set_max_total_mass(self, max_total_mass: float):
-        """Sets the total maximum mass of the rocket, fully fueled.
-
-        Args:
-            max_total_mass (float): Maximum mass of the rocket
-        """
-        self.max_total_mass = max_total_mass
-
-    def _check_masses(self):
-        """Verifies the masses correspond to the limits. Returns True if no limits have been set
-
-        Returns:
-            bool: whether the mass is in the limits or not
-        """
-        check = True
-        for i in range(len(self.m_stage)):
-            try:
-                if (
-                    self.m_s[i] > self.masses_limits[i + 1]["max"]
-                    or self.m_s[i] < self.masses_limits[i + 1]["min"]
-                    or self.m_stage[i] < sum(self.m_stage[i + 1 :]) + self.mission_m_payload
-                ):
-                    check = False
-            except KeyError:  # if a stage limit is not defined, just ignore
-                continue
-        try:
-            if self.M[0] > self.max_total_mass:
-                check = False
-        except AttributeError:  # if max_total_mass is not defined, just ignore
-            pass
-        return check
+    def optimize_best_rocket(
+        self, min_number_stages, max_number_stages, starting_b_value=1, step=0.0001
+    ):
+        combinations = self._create_combinations(min_number_stages, max_number_stages)
+        best_mass = float("inf")
+        for stages in combinations:
+            self.stage_optimization(stages, starting_b_value, step)
+            if self.M[0] < best_mass:
+                best_mass = self.M[0]
+                self.best_stages = stages
 
 
 if __name__ == "__main__":
@@ -231,4 +279,5 @@ if __name__ == "__main__":
     rocket.set_masses_limits(3, 200, 50000)
     rocket.stage_optimization(["RP1", "RP1", "LH2"])
 
-    print("OK")
+    rocket.optimize_best_rocket(min_number_stages=2, max_number_stages=3)
+    print(rocket.best_stages)

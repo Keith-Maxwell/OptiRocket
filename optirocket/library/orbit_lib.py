@@ -1,6 +1,6 @@
 import numpy as np
 
-from library import constants as const
+from . import constants as const
 
 
 def get_azimuth(inclination: float, launchpad_latitude: float) -> float:

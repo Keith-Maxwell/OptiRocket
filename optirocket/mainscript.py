@@ -2,7 +2,7 @@ import json
 
 import numpy as np
 
-from library import orbit_lib as lib
+from optirocket.library import orbit_lib as lib
 
 
 class OptiRocket:

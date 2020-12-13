@@ -1,10 +1,5 @@
-import os
-import sys
-
-sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, "optirocket"))
-
 import pytest
-from optirocket import optirocket as script
+from optirocket import mainscript as script
 from optirocket.library import orbit_lib as lib
 
 rocket = script.OptiRocket()

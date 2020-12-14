@@ -1,8 +1,10 @@
 import json
 
 import numpy as np
+from rich.progress import track
 
 from optirocket.library import orbit_lib as lib
+from optirocket.library import rich_print
 
 
 class OptiRocket:
@@ -259,13 +261,31 @@ class OptiRocket:
     def optimize_best_rocket(
         self, min_number_stages, max_number_stages, starting_b_value=1, step=0.0001
     ):
+        # Create a table to display the results of the optimization
+        results_table = rich_print.init_results_table(max_number_stages)
+
         combinations = self._create_combinations(min_number_stages, max_number_stages)
-        best_mass = float("inf")
-        for stages in combinations:
+        self.best_mass = float("inf")  # Initialize variable
+        for stages in track(combinations):
+            # call optimization on one combination
             self.stage_optimization(stages, starting_b_value, step)
-            if self.M[0] < best_mass:
-                best_mass = self.M[0]
+
+            if self.M[0] < self.best_mass:
+                self.best_mass = self.M[0]
                 self.best_stages = stages
+
+            else:
+                # append the result to the table
+                results_table = rich_print.add_results_row(
+                    results_table, stages, self.M[0], best=False
+                )
+
+        # add the best result row in red
+        results_table = rich_print.add_results_row(
+            results_table, self.best_stages, self.best_mass, best=True
+        )
+        # display the final table
+        rich_print.print_results(results_table)
 
 
 if __name__ == "__main__":
@@ -280,4 +300,3 @@ if __name__ == "__main__":
     rocket.stage_optimization(["RP1", "RP1", "LH2"])
 
     rocket.optimize_best_rocket(min_number_stages=2, max_number_stages=3)
-    print(rocket.best_stages)

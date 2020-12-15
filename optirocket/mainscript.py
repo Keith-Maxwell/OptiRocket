@@ -1,4 +1,5 @@
 import json
+from importlib import resources
 
 import numpy as np
 from rich.progress import track
@@ -97,8 +98,7 @@ class OptiRocket:
         mass_payload: float = None,
         launchpad: str = None,
         launchpad_latitude: float = None,
-    ):  # TODO: Change the loading of pre-made missions to ressource import
-        # https://realpython.com/python-import/#absolute-and-relative-imports
+    ):
         """Defines the mission to build the rocket for. Can be defined manually or in a python file.
 
         Args:
@@ -114,10 +114,13 @@ class OptiRocket:
         Raises:
             AttributeError: If a necessary attribute is not given, raises an exception.
         """
-
         if filename is not None:
-            with open(filename) as file:
-                data = json.load(file)
+            if any(filename == f for f in ["POLARsat", "GEOsat", "ISScargo", "LEOsat", "SSOsat"]):
+                with resources.open_text("optirocket.missions", filename + ".json") as file:
+                    data = json.load(file)
+            else:
+                with open(filename) as file:
+                    data = json.load(file)
             self.client_name = data["client_name"]
             self.mission_Z_p = data["altitude_perigee"]
             self.mission_Z_a = data["altitude_apogee"]
@@ -302,7 +305,7 @@ class OptiRocket:
 if __name__ == "__main__":
 
     rocket = OptiRocket()
-    rocket.mission(filename="optirocket/missions/POLARsat.json")
+    rocket.mission(filename="C:/Users/maxpe/Desktop/SSOsat.json")
     rocket.compute_requirements()
     rocket.add_available_propellant("Hydrazine", [2, 3, 4], 290, 240, 0.15)
     rocket.set_masses_limits(1, 500, 100000)

@@ -22,17 +22,25 @@ rocket.mission(filename="path/to/file.json")
 
 #### Default missions
 
-|                                 | ISScargo.json | POLARsat.json | GEOsat.json |  SSOsat.json   | LEOsat.json |
-| ------------------------------- | :-----------: | :-----------: | :---------: | :------------: | :---------: |
-| Client                          |   Roscosmos   |   Military    |     ESA     |      NASA      |     ESA     |
-| Injection/Altitude perigee (km) |      410      |      340      |     200     |      567       |     300     |
-| Altitude apogee (km)            |      410      |      340      |    35786    |      567       |     300     |
-| Inclination (degrees)           |     51.6      |      90       |     5.2     |      97.6      |     49      |
-| Mass of the payload (kg)        |     32000     |      290      |    3800     |      1150      |     300     |
-| Launchpad                       |   Baikonur    |  Vandenberg   |   Kourou    | Cape Canaveral |   Kourou    |
-| Launchpad latitude (degrees)    |     45.6      |     34.7      |     5.2     |      28.5      |     5.2     |
+To use a default mission, call the `mission()` method with just the name of the mission desired. for example :
+
+```py
+rocket.mission(filename="ISScargo")
+```
+
+|                                 | ISScargo  |  POLARsat  | GEOsat |     SSOsat     | LEOsat |
+| ------------------------------- | :-------: | :--------: | :----: | :------------: | :----: |
+| Client                          | Roscosmos |  Military  |  ESA   |      NASA      |  ESA   |
+| Injection/Altitude perigee (km) |    410    |    340     |  200   |      567       |  300   |
+| Altitude apogee (km)            |    410    |    340     | 35786  |      567       |  300   |
+| Inclination (degrees)           |   51.6    |     90     |  5.2   |      97.6      |   49   |
+| Mass of the payload (kg)        |   32000   |    290     |  3800  |      1150      |  300   |
+| Launchpad                       | Baikonur  | Vandenberg | Kourou | Cape Canaveral | Kourou |
+| Launchpad latitude (degrees)    |   45.6    |    34.7    |  5.2   |      28.5      |  5.2   |
 
 ### Manually specify the parameters
+
+If you don't use a mission file, you can manually set the mission parameters.
 
 ```py
 rocket.mission(client_name="Roscosmos",

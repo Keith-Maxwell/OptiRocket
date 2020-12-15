@@ -97,7 +97,8 @@ class OptiRocket:
         mass_payload: float = None,
         launchpad: str = None,
         launchpad_latitude: float = None,
-    ):
+    ):  # TODO: Change the loading of pre-made missions to ressource import
+        # https://realpython.com/python-import/#absolute-and-relative-imports
         """Defines the mission to build the rocket for. Can be defined manually or in a python file.
 
         Args:
@@ -196,7 +197,9 @@ class OptiRocket:
             "struc_index": structural_index,
         }
 
-    def stage_optimization(self, stages, starting_b_value: float = 1, step: float = 0.0001):
+    def stage_optimization(
+        self, stages, starting_b_value: float = 1, step: float = 0.0001
+    ):  # TODO : Change iteration method to dichotomy
         """finds the most optimized rocket configuration using the given stage propellant list.
         A list of n elements will result in a rocket with n stages.
 
@@ -259,33 +262,41 @@ class OptiRocket:
                     break
 
     def optimize_best_rocket(
-        self, min_number_stages, max_number_stages, starting_b_value=1, step=0.0001
+        self,
+        min_number_stages: int,
+        max_number_stages: int,
+        starting_b_value: float = 1,
+        step: float = 0.0001,
+        show_output: bool = False,
     ):
-        # Create a table to display the results of the optimization
-        results_table = rich_print.init_results_table(max_number_stages)
-
         combinations = self._create_combinations(min_number_stages, max_number_stages)
         self.best_mass = float("inf")  # Initialize variable
+        self.optimization_results = {}
+
         for stages in track(combinations):
+
             # call optimization on one combination
             self.stage_optimization(stages, starting_b_value, step)
+
+            self.optimization_results[stages] = {
+                "total_mass": self.M[0],
+                "struc_mass": self.m_s,
+                "fuel_mass": self.m_e,
+                "deltaV": self.dV,
+            }
 
             if self.M[0] < self.best_mass:
                 self.best_mass = self.M[0]
                 self.best_stages = stages
 
-            else:
-                # append the result to the table
-                results_table = rich_print.add_results_row(
-                    results_table, stages, self.M[0], best=False
-                )
+        if show_output is True:
+            table = rich_print.init_results_table(max_number_stages)
+            for key, value in self.optimization_results.items():
+                table = rich_print.add_results_row(table, key, value["total_mass"])
+            table = rich_print.add_results_row(table, self.best_stages, self.best_mass, best=True)
+            rich_print.print_results(table)
 
-        # add the best result row in red
-        results_table = rich_print.add_results_row(
-            results_table, self.best_stages, self.best_mass, best=True
-        )
-        # display the final table
-        rich_print.print_results(results_table)
+    # TODO: Print detailled rocket characteristics
 
 
 if __name__ == "__main__":
@@ -293,10 +304,11 @@ if __name__ == "__main__":
     rocket = OptiRocket()
     rocket.mission(filename="optirocket/missions/POLARsat.json")
     rocket.compute_requirements()
-    rocket.add_available_propellant("Hydrazine", [2, 3], 290, 240, 0.15)
+    rocket.add_available_propellant("Hydrazine", [2, 3, 4], 290, 240, 0.15)
     rocket.set_masses_limits(1, 500, 100000)
     rocket.set_masses_limits(2, 200, 80000)
     rocket.set_masses_limits(3, 200, 50000)
-    rocket.stage_optimization(["RP1", "RP1", "LH2"])
+    rocket.set_max_total_mass(1500000)
 
-    rocket.optimize_best_rocket(min_number_stages=2, max_number_stages=3)
+    rocket.optimize_best_rocket(min_number_stages=2, max_number_stages=4, show_output=True)
+    # print(rocket.optimization_results)

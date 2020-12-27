@@ -1,4 +1,5 @@
 import json
+import warnings
 from importlib import resources
 
 import numpy as np
@@ -17,7 +18,7 @@ class OptiRocket:
         }
         self.masses_limits = {}
 
-    def _check_masses(self) -> bool:
+    def _check_masses_inf(self) -> bool:
         """Verifies the masses correspond to the limits. Returns True if no limits have been set
 
         Returns:
@@ -27,10 +28,20 @@ class OptiRocket:
         for i in range(len(self.m_stage)):
             try:
                 if (
-                    self.m_s[i] > self.masses_limits[i + 1]["max"]
-                    or self.m_s[i] < self.masses_limits[i + 1]["min"]
+                    self.m_s[i] < self.masses_limits[i + 1]["min"]
                     or self.m_stage[i] < sum(self.m_stage[i + 1 :]) + self.mission_m_payload
                 ):
+                    check = False
+            except KeyError:  # if a stage limit is not defined, just ignore
+                continue
+
+        return check
+
+    def _check_masses_sup(self):
+        check = True
+        for i in range(len(self.m_stage)):
+            try:
+                if self.m_s[i] > self.masses_limits[i + 1]["max"]:
                     check = False
             except KeyError:  # if a stage limit is not defined, just ignore
                 continue
@@ -39,6 +50,7 @@ class OptiRocket:
                 check = False
         except AttributeError:  # if max_total_mass is not defined, just ignore
             pass
+
         return check
 
     def _check_propellant_config(self, propellant_config, show_output: bool = True) -> bool:
@@ -149,7 +161,7 @@ class OptiRocket:
             if value is None:
                 raise AttributeError(f"{key} is necessary but is not defined")
 
-    def compute_requirements(self):
+    def compute_requirements(self, show_output: bool = False):
         """Calculates the main requirements from the mission profile specified. Determines :
         - azimuth (in degrees),
         - V_final, Orbital velocity at required altitude (in m/s)
@@ -162,6 +174,9 @@ class OptiRocket:
         self.V_init = lib.get_initial_velocity(self.mission_launchpad_latitude, self.azimuth)
         self.V_losses = lib.get_deltaV_losses(self.mission_Z_p)
         self.required_dVp = self.V_final - self.V_init + self.V_losses
+
+        if show_output is True:
+            rich_print.mission_requirements(self)
 
     def set_masses_limits(self, stage: int, min: float, max: float):
         """Sets the lower and upper limits on the structural mass of a stage
@@ -207,8 +222,8 @@ class OptiRocket:
         Args:
             stages (List[str]): List of propellants used stage by stage in order from bottom to top
             precision (float, optional): Error on the Delta V. Defaults to 0.001.
-            step (float, optional): Step for increase of coef b when the rocket must satisfy masses constraints.
-            Defaults to 0.0001.
+            step (float, optional): Step for increase of coef b when the rocket must satisfy
+            masses constraints. Defaults to 0.0001.
 
         Raises:
             Exception: Invalid stage configuration. Check the validity of the propellants.
@@ -235,16 +250,20 @@ class OptiRocket:
         high = 10
         middle = (low + high) / 2
         self.b[n - 1] = middle
-        min_deltaV_ok = False
+        # --------
+        min_deltaV_ok = False  # dichotomy is used until the required Delta V is reached
+
         while True:
-            self.dV[n - 1] = lib.const.EARTH_GRAV_SEA_LVL * ISP[n - 1] * np.log(self.b[n - 1])
-            for j in range(n - 2, -1, -1):
-                self.b[j] = (
-                    1
-                    / self.Omega[j]
-                    * (1 - ISP[j + 1] / ISP[j] * (1 - self.Omega[j + 1] * self.b[j + 1]))
-                )
-                self.dV[j] = lib.const.EARTH_GRAV_SEA_LVL * ISP[j] * np.log(self.b[j])
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.dV[n - 1] = lib.const.EARTH_GRAV_SEA_LVL * ISP[n - 1] * np.log(self.b[n - 1])
+                for j in range(n - 2, -1, -1):
+                    self.b[j] = (
+                        1
+                        / self.Omega[j]
+                        * (1 - ISP[j + 1] / ISP[j] * (1 - self.Omega[j + 1] * self.b[j + 1]))
+                    )
+                    self.dV[j] = lib.const.EARTH_GRAV_SEA_LVL * ISP[j] * np.log(self.b[j])
 
             if (
                 sum(self.dV) - self.required_dVp < -precision and not min_deltaV_ok
@@ -259,7 +278,7 @@ class OptiRocket:
                 self.b[n - 1] = middle
 
             else:  # good, calculate masses
-                min_deltaV_ok = True
+                min_deltaV_ok = True  # min deltaV reached, adjust in function of the masses.
                 for i in range(n - 1, -1, -1):
                     self.a[i] = (1 + k[i]) / self.b[i] - k[i]
                     self.M[i] = self.M[i + 1] / self.a[i]
@@ -267,11 +286,19 @@ class OptiRocket:
                     self.m_s[i] = k[i] * self.m_e[i]
                     self.m_stage[i] = self.m_e[i] + self.m_s[i]
 
-                if self._check_masses() is False:
+                if self._check_masses_inf() is False:
                     # Conditions are not fulfilled
                     # The rocket will diverge from the optimum to satisfy the masses
                     self.b[n - 1] += step
                     continue
+                elif self._check_masses_sup() is False:
+                    self.m_stage = [float("inf") for i in range(n)]
+                    self.M = [float("inf") for i in range(n)]
+                    self.m_e = [float("inf") for i in range(n)]
+                    self.m_s = [float("inf") for i in range(n)]
+                    self.dV = [float("inf") for i in range(n)]
+                    break
+
                 else:
                     # Conditions are fulfilled
                     break
@@ -300,12 +327,13 @@ class OptiRocket:
                 "deltaV": self.dV,
             }
 
-            if self.M[0] < self.best_mass:
+            if 0 < self.M[0] < self.best_mass:
                 self.best_mass = self.M[0]
                 self.best_stages = stages
                 self.best_dV = self.dV
 
         if show_output is True:
+
             results = rich_print.Results_table(max_number_stages)
             for key, value in self.optimization_results.items():
                 results.add_results_row(key, value["total_mass"], value["deltaV"])
@@ -318,12 +346,13 @@ class OptiRocket:
 if __name__ == "__main__":
 
     rocket = OptiRocket()
-    rocket.mission(filename="POLARsat")
-    rocket.compute_requirements()
-    # rocket.add_available_propellant("Hydrazine", [2, 3, 4], 290, 240, 0.15)
-    rocket.set_masses_limits(1, 500, 100000)
-    rocket.set_masses_limits(2, 200, 80000)
-    rocket.set_masses_limits(3, 200, 50000)
-    rocket.set_max_total_mass(1500000)
+    rocket.mission(filename="ISScargo")
+    rocket.compute_requirements(show_output=True)
+
+    rocket.add_available_propellant("Hydrazine", [2, 3, 4], 290, 240, 0.15)
+    # rocket.set_masses_limits(1, 500, 100000)
+    # rocket.set_masses_limits(2, 200, 80000)
+    # rocket.set_masses_limits(3, 200, 50000)
+    # rocket.set_max_total_mass(1500000)
 
     rocket.optimize_best_rocket(min_number_stages=2, max_number_stages=3, show_output=True)

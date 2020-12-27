@@ -1,8 +1,8 @@
-import numpy as np
 import importlib
 
-import library.orbit_lib as lib
+import numpy as np
 
+import library.orbit_lib as lib
 
 # ------------ Definitions ---------------
 
@@ -16,7 +16,7 @@ def Injection_Requirements(mission: str = "mission5"):
     by the rocket to reach orbit.
 
     Args:
-        mission (str, optional): name of the python file (without extension) 
+        mission (str, optional): name of the python file (without extension)
         that contains the mission data. Defaults to "mission5".
 
     Returns:
@@ -45,17 +45,17 @@ def Injection_Requirements(mission: str = "mission5"):
 
 def Propellant_spec(prop_type: str, stage_number: int):
     """This function returns the predetermined characteristics
-    of rocket fuel. The main characteristics are the ISP, 
+    of rocket fuel. The main characteristics are the ISP,
     the higher the better, and the structural index, the lower the better.
-    The structural index represents the portion of the mass used by 
+    The structural index represents the portion of the mass used by
     the structure of the tank.
     Solid propellant can only be used for the first stage.
     Liquid Hydrogen cannot be used for the first stage.
 
     Args:
-        prop_type (str): Name of the propellant used. 
-        - LH2 is liquid hydrogen. 
-        - RP1 is rocket grade kerosene. 
+        prop_type (str): Name of the propellant used.
+        - LH2 is liquid hydrogen.
+        - RP1 is rocket grade kerosene.
         - SOLID is self explainatory.
         stage_number (int): Number of the stage for the propellant used.
         (1 is the first stage, at the bottom of the rocket).
@@ -86,7 +86,7 @@ def get_propellant_specs(list_of_propellants):
     in a list ordered by stage.
 
     Args:
-        list_of_propellants (List[str]): List of propellants used, 
+        list_of_propellants (List[str]): List of propellants used,
         stage by stage, in order from stage 1 to n (bottom to top)
 
     Returns:
@@ -102,9 +102,16 @@ def get_propellant_specs(list_of_propellants):
     return ISP, structural_index
 
 
-def Stage_Optimisation(stages, required_dVp: float, payload_mass: float, starting_b_value: float = 1.0001, min_stage1_mass: float = 500, min_stageN_mass: float = 200):
+def Stage_Optimisation(
+    stages,
+    required_dVp: float,
+    payload_mass: float,
+    starting_b_value: float = 1.0001,
+    min_stage1_mass: float = 500,
+    min_stageN_mass: float = 200,
+):
     """Automaticaly finds the most optimized rocket configuration using the given stage propellant list. A list of n elements will result in a rocket with n stages. Each stage uses the propellant specified. Choices are RP1, LH2 or Solid.
-    The function will try to build a rocket with a propulsive Delta V >= required_dVp. 
+    The function will try to build a rocket with a propulsive Delta V >= required_dVp.
     Payload mass must be specified because it is important in the sizing of the rocket.
 
     Args:
@@ -114,11 +121,11 @@ def Stage_Optimisation(stages, required_dVp: float, payload_mass: float, startin
         starting_b_value (float, optional): value of the factor b at the start of the algorithm. Defaults to 1.
 
     Returns:
-        List[int]: ISPs of each stage, in a list ordered by stage 
-        List[float]: Delta V of each stage, in a list ordered by stage 
-        List[float]: incremental mass of each stage, in a list ordered by stage 
-        List[float]: fuel mass of each stage, in a list ordered by stage 
-        List[float]: structural mass of each stage, in a list ordered by stage 
+        List[int]: ISPs of each stage, in a list ordered by stage
+        List[float]: Delta V of each stage, in a list ordered by stage
+        List[float]: incremental mass of each stage, in a list ordered by stage
+        List[float]: fuel mass of each stage, in a list ordered by stage
+        List[float]: structural mass of each stage, in a list ordered by stage
     """
 
     n = len(stages)
@@ -141,11 +148,9 @@ def Stage_Optimisation(stages, required_dVp: float, payload_mass: float, startin
 
     b[n - 1] = starting_b_value  # arbitrary
     while True:
-        dV[n - 1] = lib.const.EARTH_GRAV_SEA_LVL * \
-            ISP[n - 1] * np.log(b[n - 1])
+        dV[n - 1] = lib.const.EARTH_GRAV_SEA_LVL * ISP[n - 1] * np.log(b[n - 1])
         for j in range(n - 2, -1, -1):
-            b[j] = 1 / Omega[j] * (1 - ISP[j + 1] / ISP[j] *
-                                   (1 - Omega[j + 1] * b[j + 1]))
+            b[j] = 1 / Omega[j] * (1 - ISP[j + 1] / ISP[j] * (1 - Omega[j + 1] * b[j + 1]))
             dV[j] = lib.const.EARTH_GRAV_SEA_LVL * ISP[j] * np.log(b[j])
 
         if sum(dV) >= required_dVp:
@@ -158,10 +163,14 @@ def Stage_Optimisation(stages, required_dVp: float, payload_mass: float, startin
             # Stage 1 > 500 kg
             # Stage N > 200 kg
             # Mass Stage i > total mass stages above
-            if m_s[0] < min_stage1_mass or any(elem < min_stageN_mass for elem in m_s[1:]) or any(
-                (m_s[i] + m_e[i]) <
-                (sum(m_e[i + 1:]) + sum(m_s[i + 1:]) + M[-1])
-                    for i in range(n - 2, -1, -1)):
+            if (
+                m_s[0] < min_stage1_mass
+                or any(elem < min_stageN_mass for elem in m_s[1:])
+                or any(
+                    (m_s[i] + m_e[i]) < (sum(m_e[i + 1 :]) + sum(m_s[i + 1 :]) + M[-1])
+                    for i in range(n - 2, -1, -1)
+                )
+            ):
                 # Conditions are not fulfilled
                 b[n - 1] += 0.000001
                 continue
@@ -171,7 +180,11 @@ def Stage_Optimisation(stages, required_dVp: float, payload_mass: float, startin
     return ISP, dV, M, m_e, m_s
 
 
-def create_combinations(min_number_stages: int = 2, max_number_stages: int = 3, available_propellants=["Solid", "RP1", "LH2"]):
+def create_combinations(
+    min_number_stages: int = 2,
+    max_number_stages: int = 3,
+    available_propellants=["Solid", "RP1", "LH2"],
+):
     """Generates all the possible and valid propellant configurations.
 
     Args:
@@ -183,6 +196,7 @@ def create_combinations(min_number_stages: int = 2, max_number_stages: int = 3, 
         List[List[str]]: List of all the possible combinations
     """
     from itertools import combinations_with_replacement
+
     combinations = []
     for k in range(min_number_stages, max_number_stages + 1):
         combs = combinations_with_replacement(available_propellants, r=k)
@@ -208,15 +222,26 @@ def is_propellant_combination_allowed(combination):
     return True  # all good, allowed
 
 
-def best_rocket(required_dVp: float, payload_mass: float, min_number_stages: int, max_number_stages: int, available_propellants, starting_b_value: float, min_stage1_mass: float, min_stageN_mass: float):
+def best_rocket(
+    required_dVp: float,
+    payload_mass: float,
+    min_number_stages: int,
+    max_number_stages: int,
+    available_propellants,
+    starting_b_value: float,
+    min_stage1_mass: float,
+    min_stageN_mass: float,
+):
 
     stages_combinations = create_combinations(
-        min_number_stages, max_number_stages, available_propellants)
+        min_number_stages, max_number_stages, available_propellants
+    )
 
-    best_mass = float('inf')  # initialization
+    best_mass = float("inf")  # initialization
     for stages in stages_combinations:
         ISP, dV, M, m_e, m_s = Stage_Optimisation(
-            stages, required_dVp, payload_mass, starting_b_value, min_stage1_mass, min_stageN_mass)
+            stages, required_dVp, payload_mass, starting_b_value, min_stage1_mass, min_stageN_mass
+        )
 
         if M[0] < best_mass:  # New combination results in lighter rocket
             # Store the best params
@@ -228,20 +253,20 @@ def best_rocket(required_dVp: float, payload_mass: float, min_number_stages: int
 
 
 def Orbital_elem_check(mission, injection_velocity):
-    
+
     data = importlib.import_module("missions." + mission)
     v = injection_velocity * 1e-3
     r_p = data.Z_p + lib.const.EARTH_RADIUS
-    semi_major_axis = 1 / (( 2 / r_p ) - (v**2 / lib.const.EARTH_GRAV_CONST))
+    semi_major_axis = 1 / ((2 / r_p) - (v ** 2 / lib.const.EARTH_GRAV_CONST))
     e = 1 - (r_p / semi_major_axis)
-    r_a = semi_major_axis * ( 1 + e )
+    r_a = semi_major_axis * (1 + e)
     z_a = r_a - lib.const.EARTH_RADIUS
-    
-    if z_a <= data.Z_a + 1 and z_a >= data.Z_a - 1 :
+
+    if z_a <= data.Z_a + 1 and z_a >= data.Z_a - 1:
         print("\n\nSuccess !")
-    else :
+    else:
         print("\nFailure you dum-dum !")
-        
+
     print("Semi major axis = ", semi_major_axis)
     print("Altitude at Apogee after injection = ", z_a)
 
@@ -252,12 +277,20 @@ if __name__ == "__main__":
 
     # <-- input the mission scenario
     mission = "mission2"
-    
+
     azimut, Vf, Vi, Vl, dVp, m_cu = Injection_Requirements(mission)
 
     # <-- input various parameters to automatically find the lightest rocket possible
-    stages, ISP, dV, M, m_e, m_s = best_rocket(dVp, m_cu, min_number_stages=2, max_number_stages=4, available_propellants=[
-                                               "Solid", "RP1", "LH2"], starting_b_value=2, min_stage1_mass=500, min_stageN_mass=200)
+    stages, ISP, dV, M, m_e, m_s = best_rocket(
+        dVp,
+        m_cu,
+        min_number_stages=2,
+        max_number_stages=4,
+        available_propellants=["Solid", "RP1", "LH2"],
+        starting_b_value=2,
+        min_stage1_mass=500,
+        min_stageN_mass=200,
+    )
 
     # ----------------- Prints -------------------
     print("\n-------------- Mission parameters --------------")
@@ -269,7 +302,7 @@ if __name__ == "__main__":
     print("\n-------------- Rocket parameters --------------")
     print(f"\nTotal propulsive Delta V = {sum(dV)}")
     print("\nTotal mass ", M[0])
-    print('\nPropellants used ', stages)
+    print("\nPropellants used ", stages)
 
     for i in range(len(stages)):
         print("\n------------------------------------------------")

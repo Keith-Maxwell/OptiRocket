@@ -1,0 +1,9 @@
+{
+    "client_name":"ESA",
+    "altitude_perigee" : 300, 
+    "altitude_apogee" : 300, 
+    "inclination" : 49, 
+    "mass_payload" : 300, 
+    "launchpad" : "Kourou",
+    "launchpad_latitude" : 5.2
+}

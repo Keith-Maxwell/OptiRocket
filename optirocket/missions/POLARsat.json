@@ -1,0 +1,9 @@
+{
+    "client_name":"Military",
+    "altitude_perigee" : 340, 
+    "altitude_apogee" : 340, 
+    "inclination" : 90, 
+    "mass_payload" : 290, 
+    "launchpad" : "Vandenberg",
+    "launchpad_latitude" : 34.7
+}

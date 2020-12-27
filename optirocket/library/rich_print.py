@@ -4,19 +4,22 @@ from rich.table import Table
 console = Console()
 
 
-def init_results_table(n_stages):
-    table = Table(show_header=True, header_style="bold blue")
-    table.add_column("Total mass (kg)", justify="right")
-    for i in range(n_stages):
-        table.add_column(f"Stage {i+1}")
-    return table
+class Results_table:
+    def __init__(self, max_n_stages):
+        self.console = Console()
+        self.table = Table(show_header=True, header_style="bold blue")
+        self.table.add_column("Total mass (kg)", justify="right")
+        self.table.add_column("Delta V (ms)", justify="right")
+        for i in range(max_n_stages):
+            self.table.add_column(f"Stage {i+1}")
 
+    def add_results_row(self, stages, total_mass, deltaV, best: bool = False):
+        self.table.add_row(
+            str(round(total_mass, 1)),
+            str(round(sum(deltaV))),
+            *stages,
+            style="green" if best else None,
+        )
 
-def add_results_row(table, stages, total_mass, best: bool = False):
-
-    table.add_row(str(round(total_mass, 3)), *stages, style="green" if best else None)
-    return table
-
-
-def print_results(table):
-    console.print(table)
+    def print(self):
+        console.print(self.table)

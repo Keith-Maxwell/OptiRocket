@@ -1,5 +1,19 @@
 # User Guide
 
+- [User Guide](#user-guide)
+  - [Initialize the `OptiRocket` class](#initialize-the-optirocket-class)
+  - [Specify the mission](#specify-the-mission)
+    - [Import from mission file](#import-from-mission-file)
+      - [Default missions](#default-missions)
+    - [Manually specify the parameters](#manually-specify-the-parameters)
+  - [Compute the requirements](#compute-the-requirements)
+  - [Available propellants](#available-propellants)
+  - [Setting the limits on the mass](#setting-the-limits-on-the-mass)
+    - [Minimum and maximum structural mass](#minimum-and-maximum-structural-mass)
+    - [Maximum total mass](#maximum-total-mass)
+  - [Stage optimization](#stage-optimization)
+    - [Optimizing for a specific propellant combination](#optimizing-for-a-specific-propellant-combination)
+
 ## Initialize the `OptiRocket` class
 
 ```python

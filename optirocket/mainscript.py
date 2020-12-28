@@ -324,6 +324,7 @@ class OptiRocket:
                 "total_mass": self.M[0],
                 "struc_mass": self.m_s,
                 "fuel_mass": self.m_e,
+                "stage_mass": self.m_stage,
                 "deltaV": self.dV,
             }
 
@@ -331,7 +332,7 @@ class OptiRocket:
                 self.best_mass = self.M[0]
                 self.best_stages = stages
                 self.best_dV = self.dV
-
+        # TODO : handle error when there is no optimization possible
         if show_output is True:
 
             results = rich_print.Results_table(max_number_stages)
@@ -339,8 +340,12 @@ class OptiRocket:
                 results.add_results_row(key, value["total_mass"], value["deltaV"])
             results.add_results_row(self.best_stages, self.best_mass, self.best_dV, best=True)
             results.print()
+            rich_print.best_rocket_table(
+                self.optimization_results, self.best_stages, self.mission_m_payload
+            )
 
     # TODO: Print detailled rocket characteristics
+    # def print_best_rocket(self):
 
 
 if __name__ == "__main__":
@@ -349,10 +354,10 @@ if __name__ == "__main__":
     rocket.mission(filename="ISScargo")
     rocket.compute_requirements(show_output=True)
 
-    rocket.add_available_propellant("Hydrazine", [2, 3, 4], 290, 240, 0.15)
-    # rocket.set_masses_limits(1, 500, 100000)
-    # rocket.set_masses_limits(2, 200, 80000)
-    # rocket.set_masses_limits(3, 200, 50000)
-    # rocket.set_max_total_mass(1500000)
+    # rocket.add_available_propellant("Hydrazine", [2, 3, 4], 290, 240, 0.15)
+    rocket.set_masses_limits(1, 500, 100000)
+    rocket.set_masses_limits(2, 200, 80000)
+    rocket.set_masses_limits(3, 200, 50000)
+    rocket.set_max_total_mass(1500000)
 
     rocket.optimize_best_rocket(min_number_stages=2, max_number_stages=3, show_output=True)

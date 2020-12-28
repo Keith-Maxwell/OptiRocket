@@ -34,7 +34,7 @@ def test_get_deltaV_losses():
     assert round(lib.get_deltaV_losses(410), 2) == 2230.59
 
 
-def test_check_masses():
+def test_check_masses_inf():
     rocket.mission_m_payload = 100
     rocket.m_s = [1000, 400, 100]
     rocket.m_stage = [10000, 4000, 1000]
@@ -49,6 +49,20 @@ def test_check_masses():
     rocket.m_s = [1000, 400, 100]
     rocket.m_stage = [5000, 4000, 1000]
     assert rocket._check_masses_inf() is False
+
+
+def test_check_masses_sup():
+    a = script.OptiRocket()
+    a.mission("ISScargo")
+    a.compute_requirements()
+    a.stage_optimization(["RP1", "RP1", "LH2"])
+    assert a.M[0] < 0
+    a.set_masses_limits(1, 500, 100000)
+    a.set_masses_limits(2, 200, 80000)
+    a.set_masses_limits(3, 200, 50000)
+    a.set_max_total_mass(1500000)
+    a.stage_optimization(["RP1", "RP1"])
+    assert a.M[0] == float("inf")
 
 
 def test_check_propellant_config():

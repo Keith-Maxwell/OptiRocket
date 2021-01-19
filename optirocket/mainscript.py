@@ -161,18 +161,27 @@ class OptiRocket:
             if value is None:
                 raise AttributeError(f"{key} is necessary but is not defined")
 
-    def compute_requirements(self, show_output: bool = False):
+    def compute_requirements(self, show_output: bool = False, DV_losses: float = None):
         """Calculates the main requirements from the mission profile specified. Determines :
         - azimuth (in degrees),
         - V_final, Orbital velocity at required altitude (in m/s)
         - V_init, Initial velocity due to Earth rotation (in m/s)
         - V_losses, velocity losses due to atmospheric drag (in m/s)
         - required_dVp, Total propulsive DeltaV to reach orbit (in m/s)
+
+        Parameters
+        ----------
+        show_output : bool, optional
+            displays a summary of the values computed, by default False
+        DV_losses : float, optional
+            User given value for delta V losses. If given, the program will use this value,
+            by default None
         """
         self.azimuth = lib.get_azimuth(self.mission_inc, self.mission_launchpad_latitude)
         self.V_final = lib.get_orbit_velocity(self.mission_Z_p, self.mission_Z_a)
         self.V_init = lib.get_initial_velocity(self.mission_launchpad_latitude, self.azimuth)
-        self.V_losses = lib.get_deltaV_losses(self.mission_Z_p)
+        # if user gave a value of losses, dont compute the losses
+        self.V_losses = lib.get_deltaV_losses(self.mission_Z_p) if DV_losses is None else DV_losses
         self.required_dVp = self.V_final - self.V_init + self.V_losses
 
         if show_output is True:
@@ -307,7 +316,7 @@ class OptiRocket:
         self,
         min_number_stages: int,
         max_number_stages: int,
-        starting_b_value: float = 1,
+        precision: float = 0.001,
         step: float = 0.0001,
         show_output: bool = False,
     ):
@@ -318,7 +327,7 @@ class OptiRocket:
         for stages in track(combinations):
 
             # call optimization on one combination
-            self.stage_optimization(stages, starting_b_value, step)
+            self.stage_optimization(stages, precision, step)
 
             self.optimization_results[stages] = {
                 "total_mass": self.M[0],

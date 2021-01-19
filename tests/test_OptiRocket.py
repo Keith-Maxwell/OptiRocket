@@ -20,6 +20,8 @@ def test_requirements():
     rocket.mission(filename="optirocket/missions/ISScargo.json")
     rocket.compute_requirements()
     assert round(rocket.azimuth, 1) == 62.6
+    rocket.compute_requirements(DV_losses=1200)
+    assert rocket.V_losses == 1200
 
 
 def test_get_azimuth():

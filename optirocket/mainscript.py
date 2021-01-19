@@ -150,13 +150,14 @@ class OptiRocket:
             self.mission_launchpad = launchpad
             self.mission_launchpad_latitude = launchpad_latitude
 
-        necessary_attributes = {
+        necessary_attributes = {  # These are all the attributes required
             "altitude_perigee": self.mission_Z_p,
             "altitude_apogee": self.mission_Z_a,
             "inclination": self.mission_inc,
             "mass_payload": self.mission_m_payload,
             "launchpad_latitude": self.mission_launchpad_latitude,
         }
+        # If one of the attributes is missing, raise an error
         for key, value in necessary_attributes.items():
             if value is None:
                 raise AttributeError(f"{key} is necessary but is not defined")
@@ -320,6 +321,25 @@ class OptiRocket:
         step: float = 0.0001,
         show_output: bool = False,
     ):
+        """Computes the best stages/propellants combinations.
+        This function gathers all the possible combinations from the propellants given
+        and iterates through each to compute the mass of the rocket. Then selects the
+        best rocket (the lightest one).
+
+        Parameters
+        ----------
+        min_number_stages : int
+            Minimum desired number of stages. Recommended to use minimum 2
+        max_number_stages : int
+            Maximum desired number of stages. Recommended to use maximum 5
+        precision : float, optional
+            Error on the Delta V, by default 0.001
+        step : float, optional
+            Step for increase of coef b when the rocket must satisfy masses constraints,
+            by default 0.0001
+        show_output : bool, optional
+            Prints the results of every configuration in a table, by default False
+        """
         combinations = self._create_combinations(min_number_stages, max_number_stages)
         self.best_mass = float("inf")  # Initialize variable
         self.optimization_results = {}
@@ -349,12 +369,13 @@ class OptiRocket:
                 results.add_results_row(key, value["total_mass"], value["deltaV"])
             results.add_results_row(self.best_stages, self.best_mass, self.best_dV, best=True)
             results.print()
-            rich_print.best_rocket_table(
-                self.optimization_results, self.best_stages, self.mission_m_payload
-            )
 
-    # TODO: Print detailled rocket characteristics
-    # def print_best_rocket(self):
+    def print_best_rocket(self):
+        """Prints a nice table with the full details of the best rocket from previous optimization
+        Prints the delta V, structural mass, fuel mass and total mass of each stage."""
+        rich_print.best_rocket_table(
+            self.optimization_results, self.best_stages, self.mission_m_payload
+        )
 
 
 if __name__ == "__main__":
@@ -370,3 +391,4 @@ if __name__ == "__main__":
     rocket.set_max_total_mass(1500000)
 
     rocket.optimize_best_rocket(min_number_stages=2, max_number_stages=3, show_output=True)
+    rocket.print_best_rocket()

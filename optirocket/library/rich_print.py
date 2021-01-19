@@ -6,6 +6,8 @@ console = Console()
 
 
 class Results_table:
+    # This is a table for every possible stage/propellant configuration
+    # each new line is a new config, and it allows to compare them.
     def __init__(self, max_n_stages):
         self.console = Console()
         self.table = Table(show_header=True, header_style="bold blue")
@@ -57,6 +59,7 @@ def mission_requirements(rocket):
 
 
 def best_rocket_table(opti_results, combination, payload):
+    # This function prints every details of the best rocket in a nicely formatted table
     rprint("\n")
     console.rule("Best rocket parameters")
     rprint()
